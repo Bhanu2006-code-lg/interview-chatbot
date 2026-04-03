@@ -1,0 +1,14 @@
+# Backend secrets and data
+backend/.env
+backend/sessions.db
+backend/audio*.webm
+backend/temp_audio.webm
+backend/backend.log
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+
+# Frontend
+frontend/node_modules
+frontend/build
+frontend/.env.local
