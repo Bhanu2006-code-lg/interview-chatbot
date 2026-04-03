@@ -1,29 +1,6 @@
 import React, { useState } from "react";
 import Logo from "./Logo";
-
-const techCourses = [
-  { icon: "💻", title: "Software Engineering", desc: "DSA, system design, coding rounds, OOP concepts", level: "Intermediate", questions: "50+", free: true },
-  { icon: "📊", title: "Data Science & ML", desc: "Statistics, ML algorithms, case studies, Python", level: "Advanced", questions: "40+", free: true },
-  { icon: "📦", title: "Product Management", desc: "Product sense, metrics, roadmap, GTM strategy", level: "Intermediate", questions: "45+", free: false, price: "₹499" },
-  { icon: "☁️", title: "DevOps & Cloud", desc: "AWS, Docker, Kubernetes, CI/CD pipelines", level: "Advanced", questions: "35+", free: false, price: "₹599" },
-  { icon: "🎨", title: "UX/UI Design", desc: "Design thinking, Figma, portfolio critique", level: "Beginner", questions: "30+", free: true },
-  { icon: "📈", title: "Business Analyst", desc: "Requirements gathering, SQL, stakeholder mgmt", level: "Beginner", questions: "40+", free: true },
-  { icon: "🔐", title: "Cybersecurity", desc: "Threat modeling, VAPT, compliance, SOC", level: "Advanced", questions: "30+", free: false, price: "₹699" },
-  { icon: "🤖", title: "AI/ML Engineering", desc: "Deep learning, MLOps, LLMs, model deployment", level: "Advanced", questions: "35+", free: false, price: "₹799" },
-  { icon: "📱", title: "Mobile Development", desc: "iOS, Android, React Native, Flutter", level: "Intermediate", questions: "30+", free: false, price: "₹499" },
-];
-
-const govCourses = [
-  { icon: "🏛️", title: "UPSC Civil Services", desc: "IAS, IPS, IFS – Personality test, GK, current affairs, essay writing", level: "Advanced", questions: "60+", free: false, price: "₹999", tag: "UPSC" },
-  { icon: "🏦", title: "IBPS Bank PO/Clerk", desc: "SBI, PNB, BOB – Banking awareness, reasoning, English, interview prep", level: "Intermediate", questions: "50+", free: true, tag: "IBPS" },
-  { icon: "🚂", title: "Railway Recruitment (RRB)", desc: "RRB NTPC, Group D – Technical, aptitude, GK, interview rounds", level: "Beginner", questions: "45+", free: true, tag: "RRB" },
-  { icon: "🛡️", title: "SSC CGL / CHSL", desc: "Staff Selection Commission – Tier 3 descriptive, Tier 4 interview", level: "Intermediate", questions: "40+", free: true, tag: "SSC" },
-  { icon: "⚖️", title: "Judiciary / Law Services", desc: "District Judge, Civil Judge – Legal reasoning, case analysis, viva voce", level: "Advanced", questions: "35+", free: false, price: "₹899", tag: "Judiciary" },
-  { icon: "🎖️", title: "Defence Services (NDA/CDS)", desc: "Army, Navy, Air Force – SSB interview, GTO, psychology, personal interview", level: "Advanced", questions: "50+", free: false, price: "₹799", tag: "Defence" },
-  { icon: "👮", title: "State Police Services", desc: "SI, ASI, Constable – Physical, GK, law, personality assessment", level: "Beginner", questions: "40+", free: true, tag: "Police" },
-  { icon: "🏥", title: "AIIMS / Medical PSU", desc: "AIIMS, ESIC, CGHS – Medical knowledge, ethics, situational judgment", level: "Advanced", questions: "35+", free: false, price: "₹699", tag: "Medical" },
-  { icon: "🎓", title: "Teaching (KVS/NVS/TGT/PGT)", desc: "KVS, NVS, DSSSB – Subject knowledge, pedagogy, classroom scenarios", level: "Intermediate", questions: "40+", free: true, tag: "Teaching" },
-];
+import { techCourses, govCourses } from "./courses";
 
 const features = [
   { icon: "🎤", title: "Live Voice Transcription", desc: "Real-time speech-to-text as you speak" },

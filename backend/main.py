@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
 import os
 import uuid
-import hashlib
+import bcrypt
 from dotenv import load_dotenv
 import json
 import sqlite3
@@ -138,7 +138,11 @@ def groq_call(messages, model=None, temperature=0.5, max_tokens=200):
     raise Exception(f"Rate limit reached on all models. Please wait a few minutes. ({last_err})")
 
 
-def hash_password(p): return hashlib.sha256(p.encode()).hexdigest()
+def hash_password(p: str) -> str:
+    return bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
+
+def verify_password(p: str, hashed: str) -> bool:
+    return bcrypt.checkpw(p.encode(), hashed.encode())
 
 @app.get("/")
 async def root():
@@ -154,6 +158,8 @@ async def register(data: dict):
         raise HTTPException(status_code=400, detail="All fields are required")
     conn = sqlite3.connect("sessions.db")
     c = conn.cursor()
+    if len(password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
     try:
         c.execute("INSERT INTO candidates (name, email, password, role, created_at) VALUES (?,?,?,?,?)",
                   (name, email, hash_password(password), role, datetime.now().strftime("%Y-%m-%d")))
@@ -171,11 +177,10 @@ async def login(data: dict):
     password = data.get("password", "")
     conn = sqlite3.connect("sessions.db")
     c = conn.cursor()
-    c.execute("SELECT id, name, email, role FROM candidates WHERE email=? AND password=?",
-              (email, hash_password(password)))
+    c.execute("SELECT id, name, email, role, password FROM candidates WHERE email=?", (email,))
     row = c.fetchone()
     conn.close()
-    if not row:
+    if not row or not verify_password(password, row[4]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     return {"candidate": {"id": row[0], "name": row[1], "email": row[2], "role": row[3]}}
 
