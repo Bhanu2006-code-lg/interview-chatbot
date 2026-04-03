@@ -16,6 +16,9 @@ import JDMatcher from "./JDMatcher";
 import Profile from "./Profile";
 import Feedback from "./Feedback";
 import { allCourses } from "./courses";
+import VideoRecorder from "./VideoRecorder";
+import InterviewScheduler from "./InterviewScheduler";
+import PeerInterview from "./PeerInterview";
 
 const DARK = { bg: "#0f0f1a", nav: "#1a1a2e", navBorder: "#333", card: "#1a1a2e", text: "white", muted: "#aaa" };
 const LIGHT = { bg: "#f0f2f5", nav: "#ffffff", navBorder: "#e0e0e0", card: "#ffffff", text: "#111", muted: "#555" };
@@ -74,6 +77,9 @@ function App() {
     { id: "resume", label: "Resume" },
     { id: "books", label: "Books" },
     { id: "tips", label: "Tips" },
+    { id: "video", label: "🎥 Record" },
+    { id: "schedule", label: "📅 Schedule" },
+    { id: "peer", label: "🤝 Peer" },
     { id: "chatbot", label: "AI Coach" },
     { id: "leaderboard", label: "Leaderboard" },
     { id: "analytics", label: "Analytics" },
@@ -182,6 +188,9 @@ function App() {
         <InterviewRoom key={selectedCourse.role} candidate={candidate} selectedCourse={selectedCourse} onChangeCourse={() => setSelectedCourse(null)} />
       )}
 
+      {appPage === "video" && <VideoRecorder candidate={candidate} />}
+      {appPage === "schedule" && <InterviewScheduler candidate={candidate} />}
+      {appPage === "peer" && <PeerInterview candidate={candidate} />}
       {appPage === "chatbot" && <Chatbot candidate={candidate} />}
       {appPage === "daily" && <DailyChallenge candidate={candidate} />}
       {appPage === "quiz" && <Quiz candidate={candidate} />}
