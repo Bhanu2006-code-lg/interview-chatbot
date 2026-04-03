@@ -1,0 +1,54 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+/* ── Hide scrollbars ── */
+*::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; -ms-overflow-style: none; box-sizing: border-box; }
+
+/* ── Base responsive ── */
+html, body { overflow-x: hidden; }
+img, video { max-width: 100%; }
+textarea, input, select, button { max-width: 100%; }
+
+/* ── TABLET (≤ 900px) ── */
+@media (max-width: 900px) {
+  .ir-grid { grid-template-columns: 1fr !important; }
+  .dash-grid { grid-template-columns: 1fr !important; }
+  .stat-grid { grid-template-columns: repeat(2,1fr) !important; }
+  .hero-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
+  .scorecard-grid { grid-template-columns: 1fr !important; }
+  .resume-grid { grid-template-columns: 1fr !important; }
+  .course-grid { grid-template-columns: repeat(auto-fit, minmax(260px,1fr)) !important; }
+  .page-pad { padding: 20px 16px !important; }
+}
+
+/* ── MOBILE (≤ 600px) ── */
+@media (max-width: 600px) {
+  .ir-grid, .dash-grid, .scorecard-grid, .resume-grid,
+  .jd-grid, .profile-header { grid-template-columns: 1fr !important; flex-direction: column !important; }
+  .stat-grid { grid-template-columns: repeat(2,1fr) !important; }
+  .course-grid { grid-template-columns: 1fr !important; }
+  .page-pad { padding: 14px 10px !important; }
+  .page-max { max-width: 100% !important; padding-left: 10px !important; padding-right: 10px !important; }
+  .hero-title { font-size: 28px !important; }
+  .nav-wrap { flex-wrap: wrap !important; height: auto !important; padding: 8px 12px !important; }
+  table { display: block; overflow-x: auto; width: 100%; }
+  .flex-wrap-mobile { flex-wrap: wrap !important; }
+  .hide-mobile { display: none !important; }
+}
+
+/* ── VERY SMALL (≤ 380px) ── */
+@media (max-width: 380px) {
+  .stat-grid { grid-template-columns: 1fr !important; }
+  .badge-grid { grid-template-columns: repeat(2,1fr) !important; }
+}

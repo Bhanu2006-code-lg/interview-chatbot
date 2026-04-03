@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<body style="background:#111;color:white;font-family:Arial;padding:30px">
+  <h2>Speech Test</h2>
+  <button id="btn" onclick="start()" style="padding:10px 20px;font-size:16px">Start Speaking</button>
+  <p id="out" style="margin-top:20px;font-size:18px;color:#4CAF50">Click button and speak...</p>
+  <script>
+    function start() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) { document.getElementById('out').innerText = 'NOT SUPPORTED - Use Chrome!'; return; }
+      const r = new SR();
+      r.continuous = true;
+      r.interimResults = true;
+      r.lang = 'en-US';
+      r.onresult = (e) => {
+        let t = '';
+        for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript + ' ';
+        document.getElementById('out').innerText = t;
+      };
+      r.onerror = (e) => { document.getElementById('out').innerText = 'ERROR: ' + e.error; };
+      r.start();
+      document.getElementById('btn').innerText = 'Listening...';
+    }
+  </script>
+</body>
+</html>
