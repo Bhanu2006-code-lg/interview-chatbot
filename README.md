@@ -1,6 +1,6 @@
 # 🎯 InterviewIQ Pro
 
-AI-powered mock interview platform for **Tech jobs** and **Government of India exams** — with real-time voice transcription, eye contact tracking, and instant STAR-method feedback.
+AI-powered mock interview platform for **Tech jobs** and **Government of India exams** — with real-time voice transcription, eye contact tracking, instant STAR-method feedback, video recording, peer interviews, and practice scheduling.
 
 ---
 
@@ -16,6 +16,14 @@ AI-powered mock interview platform for **Tech jobs** and **Government of India e
 - 🎯 **JD Matcher** — Paste a job description, get 5 tailored questions
 - 🏆 **Leaderboard** — Compete with other candidates
 - 🌐 **18 Career Tracks** — Tech + Government of India exams
+- 🎥 **Video Recorder** — Record your interview and replay to improve
+- 📅 **Interview Scheduler** — Set practice reminders with browser notifications
+- 🤝 **Peer Mock Interview** — Practice with a friend using room codes
+- 💬 **AI Coach Chatbot** — Ask anything about interview prep
+- 🎯 **Daily Challenge** — One hard question per day with timer
+- 📚 **Interview Books** — Handpicked books for all domains
+- 💡 **Interview Tips** — Proven strategies for tech & govt exams
+- 🎬 **Interview Process Videos** — Real interview process walkthroughs
 
 ---
 
@@ -65,23 +73,33 @@ Open [http://localhost:3000](http://localhost:3000)
 ```
 interview-chatbot/
 ├── backend/
-│   ├── main.py          # FastAPI backend
-│   ├── requirements.txt # Python dependencies
-│   └── .env.example     # Environment variables template
+│   ├── main.py               # FastAPI backend
+│   ├── requirements.txt      # Python dependencies
+│   └── .env.example          # Environment variables template
 └── frontend/
     └── src/
-        ├── App.js           # Main app with routing
-        ├── courses.js       # Shared course data
-        ├── InterviewRoom.js # Live interview with camera + voice
-        ├── Analytics.js     # Performance charts
-        ├── Dashboard.js     # Role-specific prep dashboard
-        ├── MockInterview.js # 5-question mock interview
-        ├── ResumeRoaster.js # Resume review + improvement
-        ├── JDMatcher.js     # Job description analyzer
-        ├── Quiz.js          # MCQ knowledge quiz
-        ├── Leaderboard.js   # Global rankings
-        ├── Chatbot.js       # AI interview coach chat
-        └── Profile.js       # User profile + badges
+        ├── App.js                # Main app with routing
+        ├── api.js                # API base URL config
+        ├── courses.js            # Shared course data (18 tracks)
+        ├── InterviewRoom.js      # Live interview with camera + voice
+        ├── MockInterview.js      # 5-question mock interview
+        ├── VideoRecorder.js      # Record & replay interviews
+        ├── InterviewScheduler.js # Practice reminders & notifications
+        ├── PeerInterview.js      # Peer mock interview with room codes
+        ├── Analytics.js          # Performance charts
+        ├── Dashboard.js          # Role-specific prep dashboard
+        ├── ResumeRoaster.js      # Resume review + improvement
+        ├── JDMatcher.js          # Job description analyzer
+        ├── Quiz.js               # MCQ knowledge quiz
+        ├── DailyChallenge.js     # Daily timed challenge
+        ├── Leaderboard.js        # Global rankings
+        ├── Chatbot.js            # AI interview coach chat
+        ├── Profile.js            # User profile + badges
+        ├── Feedback.js           # User feedback & reviews
+        ├── Landing.js            # Landing page
+        ├── SignIn.js             # Login & register
+        ├── CourseSelect.js       # Course selection screen
+        └── useSpeechRecognition.js # Reusable speech hook
 ```
 
 ---
@@ -94,12 +112,60 @@ interview-chatbot/
 | Backend | FastAPI (Python) |
 | AI | Groq LLaMA 3 / Gemma |
 | Database | SQLite |
+| Auth | bcrypt password hashing |
 | Speech | Web Speech API |
+| Video | MediaRecorder API |
 | Charts | Recharts |
 | PDF | pdfjs-dist |
+| Notifications | Web Notifications API |
+
+---
+
+## 🌐 18 Career Tracks
+
+### 💻 Tech & Private Sector
+| Track | Level |
+|-------|-------|
+| Software Engineering | Intermediate |
+| Data Science & ML | Advanced |
+| Product Management | Intermediate |
+| DevOps & Cloud | Advanced |
+| UX/UI Design | Beginner |
+| Business Analyst | Beginner |
+| Cybersecurity | Advanced |
+| AI/ML Engineering | Advanced |
+| Mobile Development | Intermediate |
+
+### 🏛️ Government of India
+| Track | Level |
+|-------|-------|
+| UPSC Civil Services (IAS/IPS/IFS) | Advanced |
+| IBPS Bank PO/Clerk | Intermediate |
+| Railway RRB NTPC | Beginner |
+| SSC CGL/CHSL | Intermediate |
+| Judiciary/Law Services | Advanced |
+| Defence Services NDA/CDS | Advanced |
+| State Police Services | Beginner |
+| AIIMS/Medical PSU | Advanced |
+| Teaching KVS/NVS/TGT/PGT | Intermediate |
+
+---
+
+## 🔐 Security
+
+- Passwords hashed with **bcrypt** (not plain SHA-256)
+- API keys stored in `.env` (never committed)
+- Input validation on all endpoints
+- CORS restricted to allowed origins
 
 ---
 
 ## 📄 License
 
 MIT License — free to use and modify.
+
+---
+
+## 👨‍💻 Author
+
+**Bhanu** — [GitHub](https://github.com/Bhanu2006-code-lg)
