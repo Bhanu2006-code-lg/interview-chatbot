@@ -15,6 +15,7 @@ export default function DailyChallenge({ candidate }) {
   });
   const [loading, setLoading] = useState(false);
   const timerRef = useRef(null);
+  const answerRef = useRef("");
 
   useEffect(() => {
     fetch(`${API_BASE}/question?role=${encodeURIComponent(candidate.role)}&level=Advanced`)
@@ -25,7 +26,7 @@ export default function DailyChallenge({ candidate }) {
     setStarted(true);
     timerRef.current = setInterval(() => {
       setTimeLeft(t => {
-        if (t <= 1) { clearInterval(timerRef.current); submit(answer); return 0; }
+        if (t <= 1) { clearInterval(timerRef.current); submit(answerRef.current); return 0; }
         return t - 1;
       });
     }, 1000);
@@ -88,7 +89,7 @@ export default function DailyChallenge({ candidate }) {
               </div>
             </div>
           )}
-          <textarea value={answer} onChange={e => setAnswer(e.target.value)} disabled={!started}
+          <textarea value={answer} onChange={e => { answerRef.current = e.target.value; setAnswer(e.target.value); }} disabled={!started}
             placeholder={started ? "Type your answer here..." : "Click 'Start Challenge' to begin the timer"}
             style={{ width: "100%", minHeight: 160, padding: 16, background: "#1a1a2e", border: "1px solid #2a2a4a", borderRadius: 12, color: started ? "#ddd" : "#555", fontSize: 14, lineHeight: 1.7, resize: "none", outline: "none", boxSizing: "border-box" }} />
           <div style={{ display: "flex", gap: 10, marginTop: 12 }}>

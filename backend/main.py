@@ -196,8 +196,8 @@ async def forgot_password(data: dict):
     c.execute("UPDATE candidates SET password=? WHERE email=?", (hash_password(new_password), email))
     conn.commit()
     conn.close()
-    # NOTE: In production, send this via email instead of returning it in the response
-    return {"message": f"Password reset successfully. Your new temporary password is: {new_password} — please change it after login."}
+    # NOTE: In production, send this via email. Returning here only for demo purposes.
+    return {"message": f"Password reset. Your temporary password is: {new_password} — change it after login."}
 
 
 # ── Question cache ──────────────────────────────────────────────
@@ -249,7 +249,7 @@ Return ONLY the question text, nothing else."""
 async def generate_one_question(role, level, used_set):
     topics = SUBJECT_TOPICS.get(role, "relevant domain knowledge")
     used_note = f" Do NOT repeat: {', '.join(list(used_set)[-5:])}" if used_set else ""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     def _call():
         return groq_call([
             {"role": "system", "content": build_system_prompt(role, level)},
@@ -349,7 +349,7 @@ async def translate_question(data: dict):
     script_hint = language_scripts.get(language, language)
 
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         def _call():
             return groq_call([
                 {"role": "system", "content": f"You are a professional translator specializing in {script_hint}. Your task is to translate the ENTIRE given text into {language} using {script_hint}. Rules: 1) Translate EVERY single word - do not leave any English words untranslated. 2) Use only native {language} script characters. 3) No romanization. 4) No English words mixed in. 5) Return ONLY the fully translated text."},
@@ -366,7 +366,7 @@ async def get_hint(data: dict):
     question = data.get("question", "")
     role = data.get("role", "Software Engineer")
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         def _call():
             return groq_call([
                 {"role": "system", "content": f"You are an interview coach for {role}. Give a SHORT hint (2-3 sentences) to help the candidate structure their answer. Do NOT give the answer."},
@@ -383,7 +383,7 @@ async def jd_match(data: dict):
     role = data.get("role", "Software Engineer")
     level = data.get("level", "Intermediate")
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         def _call():
             return groq_call([
                 {"role": "system", "content": "You are an expert interviewer. Analyze the job description and generate 5 targeted interview questions. Respond ONLY as JSON: {\"questions\": [\"q1\",\"q2\",\"q3\",\"q4\",\"q5\"], \"key_skills\": [\"s1\",\"s2\",\"s3\"], \"tips\": \"1 sentence prep tip\"}"},
@@ -396,6 +396,23 @@ async def jd_match(data: dict):
     except Exception as e:
         return {"questions": [], "key_skills": [], "tips": "", "error": str(e)}
 
+@app.post("/jd-match/answer")
+async def jd_match_answer(data: dict):
+    question = data.get("question", "")
+    role = data.get("role", "Software Engineer")
+    jd = data.get("jd", "")
+    try:
+        loop = asyncio.get_running_loop()
+        def _call():
+            return groq_call([
+                {"role": "system", "content": f"You are an expert interview coach for {role}. Write a strong sample answer using the STAR method (Situation, Task, Action, Result). Be concise and specific. Label each STAR section."},
+                {"role": "user", "content": f"Job Description context: {jd[:500]}\n\nQuestion: {question}\n\nWrite a strong sample answer:"}
+            ], temperature=0.5, max_tokens=300)
+        resp = await loop.run_in_executor(None, _call)
+        return {"answer": resp.choices[0].message.content.strip()}
+    except Exception as e:
+        return {"answer": "Could not generate answer. Please try again."}
+
 @app.post("/mock-interview/evaluate")
 async def mock_evaluate(data: dict):
     answers = data.get("answers", [])  # [{question, transcript}]
@@ -404,7 +421,7 @@ async def mock_evaluate(data: dict):
     if not answers:
         return {"error": "No answers provided"}
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         def _call():
             answers_text = "\n\n".join([f"Q{i+1}: {a['question']}\nA: {a['transcript'][:300]}" for i, a in enumerate(answers)])
             return groq_call([
@@ -431,13 +448,14 @@ async def mock_evaluate(data: dict):
         return {"error": str(e)}
 
 
+@app.post("/related-questions")
 async def related_questions(data: dict):
     question = data.get("question", "")
     role = data.get("role", "Software Engineer")
     level = data.get("level", "Intermediate")
     topics = SUBJECT_TOPICS.get(role, "relevant domain knowledge")
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         def _call():
             return client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
@@ -503,7 +521,7 @@ async def evaluate_answer(data: dict):
         }
 
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         def _call():
             return groq_call([
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -546,7 +564,7 @@ async def improve_answer(data: dict):
     transcript = data.get("transcript", "")
     role = data.get("role", "Software Engineer")
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         resp = await loop.run_in_executor(None, lambda: groq_call([{
             "role": "system",
             "content": f"You are an interview coach for {role}. Rewrite the answer as a concise STAR method response with Situation, Task, Action, Result labels."
@@ -564,7 +582,7 @@ async def followup_question(data: dict):
     transcript = data.get("transcript", "")
     role = data.get("role", "Software Engineer")
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         resp = await loop.run_in_executor(None, lambda: groq_call([{
             "role": "system",
             "content": f"You are a tough interviewer for {role}. Ask ONE sharp follow-up question. Return ONLY the question."
@@ -602,7 +620,7 @@ async def improve_resume(data: dict):
     resume = data.get("resume", "")
     role = data.get("role", "Software Engineer")
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         resp = await loop.run_in_executor(None, lambda: groq_call([{
             "role": "system",
             "content": f"You are a resume writer for {role}. Rewrite the resume with strong action verbs, quantified achievements, and ATS keywords. Return ONLY the improved resume text."
@@ -619,7 +637,7 @@ async def roast_resume(data: dict):
     resume = data.get("resume", "")
     role = data.get("role", "Software Engineer")
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         resp = await loop.run_in_executor(None, lambda: groq_call([{
             "role": "system", "content": f'You are a resume reviewer for {role}. Respond ONLY in JSON: {{"score": <0-100>, "verdict": "<1 sentence>", "strengths": ["x","x"], "weaknesses": ["x","x"], "quick_wins": ["x","x"], "ats_tips": ["x","x"]}}'
         }, {
@@ -637,7 +655,7 @@ async def roast_resume(data: dict):
 async def generate_quiz(data: dict):
     role = data.get("role", "Software Engineer")
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         resp = await loop.run_in_executor(None, lambda: groq_call([{
             "role": "system", "content": 'Generate exactly 10 MCQ questions. Respond ONLY in JSON: {"questions": [{"question": "<q>", "options": ["A","B","C","D"], "answer": <0-3>}]}'
         }, {
@@ -667,7 +685,7 @@ Be concise, practical, and encouraging. Format responses clearly."""},
         messages.append({"role": h["role"], "content": h["content"]})
     messages.append({"role": "user", "content": message})
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         resp = await loop.run_in_executor(None, lambda: groq_call(messages, temperature=0.7, max_tokens=300))
         return {"reply": resp.choices[0].message.content.strip()}
     except Exception as e:

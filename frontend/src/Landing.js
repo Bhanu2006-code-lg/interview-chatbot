@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import Logo from "./Logo";
 
 const techCourses = [

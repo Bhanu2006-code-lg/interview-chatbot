@@ -39,7 +39,7 @@ function CourseSelect({ candidate, onSelectCourse, onLogout, hideNav }) {
       <nav style={{ padding: "0 40px", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #1e1e3a", background: "rgba(15,15,26,0.97)", position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 38, height: 38, background: "linear-gradient(135deg,#4CAF50,#2196F3)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🎯</div>
-          <span style={{ fontSize: 20, fontWeight: "bold" }}>MockMentor <span style={{ color: "#4CAF50" }}>AI</span></span>
+          <span style={{ fontSize: 20, fontWeight: "bold" }}>InterviewIQ <span style={{ color: "#06B6D4" }}>Pro</span></span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <div style={{ textAlign: "right" }}>

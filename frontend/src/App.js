@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import API_BASE from "./api";
 import Logo from "./Logo";
 import SignIn from "./SignIn";
 import Landing from "./Landing";
@@ -54,7 +55,7 @@ function App() {
   // sync avatar from localStorage whenever it changes
   React.useEffect(() => {
     const sync = () => {
-      if (candidate) setNavAvatar(sessionStorage.getItem(`avatar_${candidate.id}`) || localStorage.getItem(`avatar_${candidate.id}`) || "");
+      if (candidate) setNavAvatar(localStorage.getItem(`avatar_${candidate.id}`) || "");
     };
     sync();
     window.addEventListener("avatarUpdated", sync);
@@ -192,7 +193,7 @@ function App() {
               localStorage.setItem("unlocked", JSON.stringify([...unlocked, c.role]));
             }
           }
-          fetch(`${require('./api').default}/warmup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role: c.role, level: c.level || "Intermediate" }) }).catch(() => {});
+          fetch(`${API_BASE}/warmup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role: c.role, level: c.level || "Intermediate" }) }).catch(() => {});
           setSelectedCourse(c);
         }} onLogout={handleLogout} hideNav />
       )}

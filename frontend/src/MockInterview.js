@@ -28,7 +28,7 @@ export default function MockInterview({ candidate, selectedCourse, onBack }) {
   useEffect(() => {
     loadQuestions();
     return () => { clearInterval(countdownRef.current); stopSR(); };
-  }, []);
+  }, [selectedCourse.role]);
 
   const loadQuestions = async () => {
     const qs = [];
@@ -75,25 +75,37 @@ export default function MockInterview({ candidate, selectedCourse, onBack }) {
     isRecRef.current = true;
     setRecording(true);
 
+    let restartTimer = null;
+    function scheduleRestart(delay = 100) {
+      clearTimeout(restartTimer);
+      restartTimer = setTimeout(() => { if (isRecRef.current) runSR(); }, delay);
+    }
+
     function runSR() {
       if (!isRecRef.current) return;
       const r = new SR();
-      r.continuous = true; r.interimResults = true; r.lang = "en-US";
+      r.continuous = true; r.interimResults = true; r.maxAlternatives = 1; r.lang = "en-US";
       recRef.current = r;
       r.onspeechstart = () => setMicActive(true);
       r.onspeechend = () => setMicActive(false);
       r.onresult = (e) => {
-        let final = "", interim = "";
+        let newFinal = "", interim = "";
         for (let i = e.resultIndex; i < e.results.length; i++) {
-          if (e.results[i].isFinal) final += e.results[i][0].transcript + " ";
-          else interim += e.results[i][0].transcript;
+          const t = e.results[i][0].transcript;
+          if (e.results[i].isFinal) newFinal += t + " ";
+          else interim += t;
         }
-        setTranscript((transcriptRef.current + " " + (final || interim)).trim());
-        if (final) { transcriptRef.current = (transcriptRef.current + " " + final).trim(); }
+        if (newFinal) {
+          transcriptRef.current = (transcriptRef.current + " " + newFinal).trim();
+        }
+        setTranscript(interim ? (transcriptRef.current + " " + interim).trim() : transcriptRef.current);
       };
-      r.onerror = () => { setMicActive(false); if (isRecRef.current) setTimeout(runSR, 150); };
-      r.onend = () => { setMicActive(false); if (isRecRef.current) setTimeout(runSR, 150); };
-      try { r.start(); } catch {}
+      r.onerror = (e) => {
+        setMicActive(false);
+        if (isRecRef.current) scheduleRestart(e.error === "no-speech" ? 300 : 80);
+      };
+      r.onend = () => { setMicActive(false); if (isRecRef.current) scheduleRestart(100); };
+      try { r.start(); } catch { if (isRecRef.current) scheduleRestart(150); }
     }
     runSR();
   };

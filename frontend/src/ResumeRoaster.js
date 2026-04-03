@@ -26,8 +26,7 @@ export default function ResumeRoaster({ candidate }) {
   const [fileName, setFileName] = useState("");
   const fileRef = useRef(null);
 
-  const handleFile = async (e) => {
-    const file = e.target.files[0];
+  const loadFile = async (file) => {
     if (!file) return;
     setFileName(file.name);
     if (file.name.toLowerCase().endsWith(".pdf")) {
@@ -44,24 +43,8 @@ export default function ResumeRoaster({ candidate }) {
     }
   };
 
-  const handleDrop = async (e) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (!file) return;
-    setFileName(file.name);
-    if (file.name.toLowerCase().endsWith(".pdf")) {
-      try {
-        const text = await extractTextFromPDF(file);
-        setResume(text);
-      } catch {
-        alert("Could not read PDF. Try copy-pasting the text instead.");
-      }
-    } else {
-      const reader = new FileReader();
-      reader.onload = (ev) => setResume(ev.target.result);
-      reader.readAsText(file);
-    }
-  };
+  const handleFile = (e) => loadFile(e.target.files[0]);
+  const handleDrop = (e) => { e.preventDefault(); loadFile(e.dataTransfer.files[0]); };
 
   const roast = async () => {
     if (!resume.trim()) return;

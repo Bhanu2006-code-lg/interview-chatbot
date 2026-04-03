@@ -14,13 +14,16 @@ export default function Feedback({ candidate }) {
   const [reviews, setReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
 
-  useEffect(() => {
+  const fetchReviews = () => {
+    setLoadingReviews(true);
     fetch(`${API_BASE}/feedback`)
       .then(r => r.json())
       .then(d => setReviews(d.feedback || []))
       .catch(() => {})
       .finally(() => setLoadingReviews(false));
-  }, [submitted]);
+  };
+
+  useEffect(() => { fetchReviews(); }, []);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -34,6 +37,7 @@ export default function Feedback({ candidate }) {
       });
       if (!res.ok) { const d = await res.json(); setError(d.detail || "Failed to submit."); return; }
       setSubmitted(true); setRating(0); setMessage(""); setCategory("General");
+      fetchReviews();
     } catch { setError("Cannot connect to server."); }
     finally { setLoading(false); }
   };

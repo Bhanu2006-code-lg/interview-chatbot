@@ -85,7 +85,6 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
   const [scorecard, setScorecard] = useState(null);
   const [evalLoading, setEvalLoading] = useState(false);
   const [sessions, setSessions] = useState([]);
-  const [usedQuestions, setUsedQuestions] = useState([]);
   const usedQuestionsRef = useRef([]);
   const [improved, setImproved] = useState(null);
   const [improveLoading, setImproveLoading] = useState(false);
@@ -123,7 +122,7 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
         if (d.question) {
           setQuestion(d.question);
           usedQuestionsRef.current = [...used, d.question];
-          setUsedQuestions(usedQuestionsRef.current);
+          
           setTranslatedQuestion("");
           setHint("");
           if (readLang) translateQuestion(readLang, d.question);
@@ -147,10 +146,10 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
         const pick = (available.length ? available : fallbacks)[Math.floor(Math.random() * (available.length || fallbacks.length))];
         setQuestion(pick);
         usedQuestionsRef.current = [...usedQuestionsRef.current, pick];
-        setUsedQuestions(usedQuestionsRef.current);
+        
       })
       .finally(() => setQLoading(false));
-  }, [selectedCourse.role]);
+  }, [selectedCourse.role, readLang]);
 
   const translateQuestion = (lang, q) => {
     if (!lang || !q) return;
@@ -167,7 +166,7 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
     setQuestion(q);
     setRelatedQuestions([]);
     usedQuestionsRef.current = [...usedQuestionsRef.current, q];
-    setUsedQuestions(usedQuestionsRef.current);
+    
     setRelatedLoading(true);
     fetch(`${API_BASE}/related-questions`, {
       method: "POST",
@@ -186,7 +185,7 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
       try { recRef.current?.stop(); } catch {}
       streamRef.current?.getTracks().forEach(t => t.stop());
     };
-  }, []);
+  }, [loadQuestion, loadSessions]);
 
 
   async function startCamera() {
@@ -285,35 +284,50 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { alert("Please use Google Chrome or Edge for voice recognition."); return; }
 
+    
+    let restartTimer = null;
+
+    function scheduleRestart(delay = 80) {
+      clearTimeout(restartTimer);
+      restartTimer = setTimeout(() => {
+        if (isRecRef.current) runSR();
+      }, delay);
+    }
+
     function runSR() {
       if (!isRecRef.current) return;
       const r = new SR();
       r.continuous = true;
       r.interimResults = true;
-      r.maxAlternatives = 3;
+      r.maxAlternatives = 1;
       r.lang = micLangRef.current;
       recRef.current = r;
+      
 
       r.onspeechstart = () => setMicActive(true);
       r.onspeechend   = () => setMicActive(false);
 
       r.onresult = (e) => {
-        let final = "", interim = "";
+        let newFinal = "";
+        let interim = "";
         for (let i = e.resultIndex; i < e.results.length; i++) {
-          let best = e.results[i][0];
-          for (let j = 1; j < e.results[i].length; j++) {
-            if (e.results[i][j].confidence > best.confidence) best = e.results[i][j];
+          const t = e.results[i][0].transcript;
+          if (e.results[i].isFinal) {
+            newFinal += t + " ";
+          } else {
+            interim += t;
           }
-          if (e.results[i].isFinal) final += best.transcript + " ";
-          else interim += best.transcript;
         }
-        setTranscript((transcriptRef.current + " " + (final || interim)).trim());
-        if (final) {
-          const full = (transcriptRef.current + " " + final).trim();
-          transcriptRef.current = full;
-          setWords(full.split(/\s+/).filter(Boolean).length);
-          setFillers(countFillers(full));
+        if (newFinal) {
+          transcriptRef.current = (transcriptRef.current + " " + newFinal).trim();
+          
+          setWords(transcriptRef.current.split(/\s+/).filter(Boolean).length);
+          setFillers(countFillers(transcriptRef.current));
         }
+        const display = interim
+          ? (transcriptRef.current + " " + interim).trim()
+          : transcriptRef.current;
+        setTranscript(display);
       };
 
       r.onerror = (e) => {
@@ -323,15 +337,16 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
           stopRecording();
           return;
         }
-        if (isRecRef.current) setTimeout(runSR, 150);
+        // no-speech = user paused, just restart quietly
+        if (isRecRef.current) scheduleRestart(e.error === "no-speech" ? 300 : 80);
       };
 
       r.onend = () => {
         setMicActive(false);
-        if (isRecRef.current) setTimeout(runSR, 150);
+        if (isRecRef.current) scheduleRestart(100);
       };
 
-      try { r.start(); } catch { if (isRecRef.current) setTimeout(runSR, 200); }
+      try { r.start(); } catch { if (isRecRef.current) scheduleRestart(150); }
     }
     runSR();
     setRecording(true);
@@ -424,6 +439,8 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
               <button key={l} onClick={() => { setLevel(l); levelRef.current = l; loadQuestion(l); }} disabled={recording}
                 style={{ padding: "3px 12px", borderRadius: 20, border: level===l?"none":"1px solid #444", background: level===l?(l==="Beginner"?"#4CAF50":l==="Intermediate"?"#2196F3":"#FF9800"):"transparent", color: "white", cursor: "pointer", fontSize: 12 }}>{l}</button>
             ))}
+            <button onClick={() => !recording && loadQuestion()} disabled={recording}
+              style={{ padding: "3px 12px", borderRadius: 20, border: "1px solid #4CAF50", background: "transparent", color: "#4CAF50", cursor: recording ? "not-allowed" : "pointer", fontSize: 12 }}>Next ▶</button>
             <button onClick={onChangeCourse}
               style={{ padding: "3px 12px", background: "transparent", border: "1px solid #666", borderRadius: 20, color: "#aaa", cursor: "pointer", fontSize: 12 }}>⇄ Change</button>
           </div>
