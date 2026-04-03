@@ -34,6 +34,7 @@ function App() {
   const [brightness, setBrightness] = useState(() => parseInt(localStorage.getItem("brightness") || "100"));
   const [showBrightness, setShowBrightness] = useState(false);
   const [navAvatar, setNavAvatar] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // sync avatar from localStorage whenever it changes
   React.useEffect(() => {
@@ -89,7 +90,7 @@ function App() {
   return (
     <div style={{ fontFamily: "Segoe UI, Arial", background: theme.bg, minHeight: "100vh", color: theme.text, transition: "background 0.3s, color 0.3s, filter 0.2s", overflowX: "hidden", filter: `brightness(${brightness}%)` }}>
       {/* NAVBAR */}
-      <div style={{ background: dark ? "rgba(10,10,20,0.97)" : "rgba(255,255,255,0.97)", backdropFilter: "blur(12px)", padding: "0 28px", borderBottom: `1px solid ${dark ? "#ffffff0f" : "#e0e0e0"}`, display: "flex", alignItems: "center", gap: 4, height: 60, position: "sticky", top: 0, zIndex: 100, boxShadow: dark ? "0 2px 20px rgba(0,0,0,0.4)" : "0 2px 12px rgba(0,0,0,0.08)" }}>
+      <div className="app-nav" style={{ background: dark ? "rgba(10,10,20,0.97)" : "rgba(255,255,255,0.97)", backdropFilter: "blur(12px)", padding: "0 28px", borderBottom: `1px solid ${dark ? "#ffffff0f" : "#e0e0e0"}`, display: "flex", alignItems: "center", gap: 4, height: 60, position: "sticky", top: 0, zIndex: 100, boxShadow: dark ? "0 2px 20px rgba(0,0,0,0.4)" : "0 2px 12px rgba(0,0,0,0.08)" }}>
         {/* Brand */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 20 }}>
           <Logo size={32} />
@@ -97,7 +98,7 @@ function App() {
         </div>
 
         {/* Nav links */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flex: 1, overflowX: "auto", scrollbarWidth: "none", msOverflowStyle: "none" }}>
+        <div className={`app-nav-links${menuOpen ? " open" : ""}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flex: 1, overflowX: "auto", scrollbarWidth: "none", msOverflowStyle: "none" }}>
           {navLinks.map(l => (
             <button key={l.id} onClick={() => setAppPage(l.id)}
               style={{
@@ -114,8 +115,15 @@ function App() {
           ))}
         </div>
 
-        {/* Right side */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8 }}>
+          {/* Hamburger - shows on mobile */}
+          <button onClick={() => setMenuOpen(o => !o)}
+            style={{ width: 38, height: 38, display: "none", alignItems: "center", justifyContent: "center", background: dark ? "#ffffff12" : "#f0f0f0", border: `1.5px solid ${dark ? "#ffffff22" : "#ddd"}`, borderRadius: 10, cursor: "pointer", flexDirection: "column", gap: 5, padding: 0, className: "show-mobile" }}
+            className="show-mobile" aria-label="Menu">
+            <span style={{ display: "block", width: 18, height: 2, background: dark ? "white" : "#333", borderRadius: 2 }} />
+            <span style={{ display: "block", width: 18, height: 2, background: dark ? "white" : "#333", borderRadius: 2 }} />
+            <span style={{ display: "block", width: 18, height: 2, background: dark ? "white" : "#333", borderRadius: 2 }} />
+          </button>
           <div style={{ position: "relative" }} className="brightness-ctrl">
             <button onClick={() => setShowBrightness(s => !s)} title={dark ? "Dark mode — adjust brightness" : "Light mode — adjust brightness"}
               style={{ width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", background: dark ? "#ffffff12" : "#f0f0f0", border: `1.5px solid ${dark ? "#ffffff22" : "#ddd"}`, borderRadius: 10, cursor: "pointer", padding: 0, transition: "all 0.2s" }}>
