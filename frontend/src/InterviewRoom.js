@@ -377,6 +377,8 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
 
   async function stopRecording() {
     clearInterval(countdownRef.current);
+    // Stop avatar speech immediately when interview ends
+    window.speechSynthesis.cancel();
     isRecRef.current = false;
     setMicActive(false);
     const rec = recRef.current;

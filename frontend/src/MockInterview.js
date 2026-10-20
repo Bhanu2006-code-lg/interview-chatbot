@@ -123,6 +123,7 @@ export default function MockInterview({ candidate, selectedCourse, onBack }) {
   const handleNext = () => {
     clearInterval(countdownRef.current);
     stopRecording();
+    window.speechSynthesis.cancel(); // stop avatar speaking when moving to next Q or finishing
     const ans = inputMode === "voice" ? transcriptRef.current : textAnswer;
     const newAnswers = [...answers, { question: questions[current], transcript: ans || "(no answer)" }];
     setAnswers(newAnswers);
