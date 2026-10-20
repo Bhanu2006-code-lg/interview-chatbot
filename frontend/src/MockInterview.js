@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import API_BASE from "./api";
+import AvatarInterviewer from "./AvatarInterviewer";
 
 const TOTAL = 5;
 
@@ -18,6 +19,10 @@ export default function MockInterview({ candidate, selectedCourse, onBack }) {
   const [evalLoading, setEvalLoading] = useState(false);
   const [inputMode, setInputMode] = useState("voice"); // voice | text
   const [micActive, setMicActive] = useState(false);
+
+  // ── Avatar state ─────────────────────────────────────────────
+  const [avatarSpeaking, setAvatarSpeaking] = useState(false);
+  const [avatarMuted, setAvatarMuted] = useState(false);
 
   const recRef = useRef(null);
   const isRecRef = useRef(false);
@@ -48,6 +53,8 @@ export default function MockInterview({ candidate, selectedCourse, onBack }) {
     setPhase("question");
     setCurrent(0);
     setAnswers([]);
+    setAvatarSpeaking(false);
+    setTimeout(() => setAvatarSpeaking(true), 400);
     startTimer();
   };
 
@@ -123,6 +130,8 @@ export default function MockInterview({ candidate, selectedCourse, onBack }) {
 
     if (current + 1 < questions.length) {
       setCurrent(c => c + 1);
+      setAvatarSpeaking(false);
+      setTimeout(() => setAvatarSpeaking(true), 400);
       startTimer();
     } else {
       submitAll(newAnswers);
@@ -205,13 +214,36 @@ export default function MockInterview({ candidate, selectedCourse, onBack }) {
         <span style={{ fontSize: 13, color: "#aaa", whiteSpace: "nowrap" }}>{current + 1}/{questions.length}</span>
       </div>
 
-      {/* Timer */}
-      <div style={{ textAlign: "center", marginBottom: 16 }}>
-        <span style={{ fontSize: 36, fontWeight: "bold", color: timeLeft <= 20 ? "#f44336" : timeLeft <= 40 ? "#FF9800" : "#4CAF50" }}>
-          {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, "0")}
-        </span>
-        <div style={{ height: 4, background: "#2a2a4a", borderRadius: 2, marginTop: 6 }}>
-          <div style={{ height: "100%", borderRadius: 2, background: timeLeft <= 20 ? "#f44336" : "#4CAF50", width: `${(timeLeft / 120) * 100}%`, transition: "width 1s linear" }} />
+      {/* ── Avatar + Timer row ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 20, background: "#1a1a2e", border: "1px solid #2a2a4a", borderRadius: 14, padding: "16px 20px", marginBottom: 16 }}>
+        <AvatarInterviewer
+          question={questions[current] || ""}
+          speaking={avatarSpeaking}
+          onDone={() => setAvatarSpeaking(false)}
+          muted={avatarMuted}
+          name="Alex"
+          role="Senior Interviewer"
+        />
+        <div style={{ flex: 1 }}>
+          {/* Timer */}
+          <div style={{ textAlign: "center", marginBottom: 8 }}>
+            <span style={{ fontSize: 36, fontWeight: "bold", color: timeLeft <= 20 ? "#f44336" : timeLeft <= 40 ? "#FF9800" : "#4CAF50" }}>
+              {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, "0")}
+            </span>
+            <div style={{ height: 4, background: "#2a2a4a", borderRadius: 2, marginTop: 6 }}>
+              <div style={{ height: "100%", borderRadius: 2, background: timeLeft <= 20 ? "#f44336" : "#4CAF50", width: `${(timeLeft / 120) * 100}%`, transition: "width 1s linear" }} />
+            </div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
+            <button onClick={() => { window.speechSynthesis.cancel(); setAvatarMuted(m => !m); setAvatarSpeaking(false); }}
+              style={{ padding: "4px 12px", background: "transparent", border: `1px solid ${avatarMuted ? "#f44336" : "#4CAF50"}`, borderRadius: 20, color: avatarMuted ? "#f44336" : "#4CAF50", cursor: "pointer", fontSize: 11 }}>
+              {avatarMuted ? "🔇 Unmute" : "🔊 Mute"}
+            </button>
+            <button onClick={() => { window.speechSynthesis.cancel(); setAvatarSpeaking(false); setTimeout(() => setAvatarSpeaking(true), 200); }}
+              style={{ padding: "4px 12px", background: "transparent", border: "1px solid #2196F3", borderRadius: 20, color: "#2196F3", cursor: "pointer", fontSize: 11 }}>
+              🔁 Replay
+            </button>
+          </div>
         </div>
       </div>
 
