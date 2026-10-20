@@ -274,6 +274,8 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
 
   async function startRecording() {
     interviewStartedRef.current = true; // mark interview as started — avatar may now speak
+    // Trigger Alex to read the current question aloud
+    setSpeakTrigger(t => t + 1);
     try {
       const micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       micStream.getTracks().forEach(t => t.stop());
