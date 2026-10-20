@@ -53,8 +53,8 @@ export default function MockInterview({ candidate, selectedCourse, onBack }) {
     setPhase("question");
     setCurrent(0);
     setAnswers([]);
-    // Trigger avatar to speak question 0 after phase change renders
-    setTimeout(() => setSpeakTrigger(t => t + 1), 500);
+    // Trigger avatar to speak Q1 — 600ms lets React render the question phase first
+    setTimeout(() => setSpeakTrigger(t => t + 1), 600);
     startTimer();
   };
 

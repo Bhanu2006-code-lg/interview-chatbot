@@ -106,6 +106,7 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
   // ── Avatar state ─────────────────────────────────────────────
   const [speakTrigger, setSpeakTrigger] = useState(0);
   const [avatarMuted,  setAvatarMuted]  = useState(false);
+  const interviewStartedRef = useRef(false); // only speak after user clicks Start
 
   const loadSessions = useCallback(() => {
     fetch(`${API_BASE}/sessions?candidate_id=${candidate.id}`)
@@ -136,8 +137,10 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
           usedQuestionsRef.current = [...used, d.question];
           setTranslatedQuestion("");
           setHint("");
-          // Trigger avatar to speak the new question
-          setTimeout(() => setSpeakTrigger(t => t + 1), 400);
+          // Only speak if the user has already clicked Start Interview
+          if (interviewStartedRef.current) {
+            setTimeout(() => setSpeakTrigger(t => t + 1), 400);
+          }
           if (readLang) translateQuestion(readLang, d.question);
           setRelatedLoading(true);
           fetch(`${API_BASE}/related-questions`, {
@@ -179,8 +182,10 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
     setQuestion(q);
     setRelatedQuestions([]);
     usedQuestionsRef.current = [...usedQuestionsRef.current, q];
-    // Trigger avatar to speak the picked question
-    setTimeout(() => setSpeakTrigger(t => t + 1), 400);
+    // Only speak if the user has started the interview
+    if (interviewStartedRef.current) {
+      setTimeout(() => setSpeakTrigger(t => t + 1), 400);
+    }
     
     setRelatedLoading(true);
     fetch(`${API_BASE}/related-questions`, {
@@ -268,6 +273,7 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
   }
 
   async function startRecording() {
+    interviewStartedRef.current = true; // mark interview as started — avatar may now speak
     try {
       const micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       micStream.getTracks().forEach(t => t.stop());
@@ -461,8 +467,8 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
             style={{ marginTop: 10, padding: "5px 14px", background: "transparent", border: `1px solid ${avatarMuted ? "#f44336" : "#4CAF50"}`, borderRadius: 20, color: avatarMuted ? "#f44336" : "#4CAF50", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
             {avatarMuted ? "🔇 Unmute Avatar" : "🔊 Mute Avatar"}
           </button>
-          {/* Replay button */}
-          {question && !qLoading && (
+          {/* Replay button — only after interview started */}
+          {question && !qLoading && interviewStartedRef.current && (
             <button
               onClick={() => { window.speechSynthesis.cancel(); setTimeout(() => setSpeakTrigger(t => t + 1), 100); }}
               style={{ marginTop: 10, marginLeft: 8, padding: "5px 14px", background: "transparent", border: "1px solid #2196F3", borderRadius: 20, color: "#2196F3", cursor: "pointer", fontSize: 12 }}>

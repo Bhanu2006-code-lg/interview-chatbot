@@ -54,6 +54,7 @@ export default function AvatarInterviewer({
 
   // ── Speak whenever speakTrigger changes (and question is ready) ──
   useEffect(() => {
+    // speakTrigger === 0 means initial mount — never auto-speak on load
     if (!question || speakTrigger === 0) return;
 
     window.speechSynthesis.cancel();
@@ -68,6 +69,11 @@ export default function AvatarInterviewer({
     utter.rate   = 0.9;
     utter.pitch  = 1.05;
     utter.volume = 1;
+
+    // Always set callbacks first
+    utter.onstart = () => setIsTalking(true);
+    utter.onend   = () => { setIsTalking(false); onDone(); };
+    utter.onerror = () => { setIsTalking(false); onDone(); };
 
     const assignVoice = () => {
       const voices = window.speechSynthesis.getVoices();
@@ -87,24 +93,24 @@ export default function AvatarInterviewer({
       if (en) utter.voice = en;
     };
 
-    // Voices might not be loaded yet on first call
-    if (window.speechSynthesis.getVoices().length === 0) {
-      window.speechSynthesis.onvoiceschanged = () => {
-        assignVoice();
-        window.speechSynthesis.speak(utter);
-      };
-    } else {
+    const speak = () => {
       assignVoice();
-      // Small delay so React has finished painting the question on screen
-      const t = setTimeout(() => window.speechSynthesis.speak(utter), 300);
-      return () => clearTimeout(t);
+      window.speechSynthesis.speak(utter);
+    };
+
+    let delayTimer;
+    if (window.speechSynthesis.getVoices().length === 0) {
+      // Voices not loaded yet — wait for them
+      window.speechSynthesis.onvoiceschanged = speak;
+    } else {
+      // Small delay so React finishes painting the question text first
+      delayTimer = setTimeout(speak, 350);
     }
 
-    utter.onstart = () => setIsTalking(true);
-    utter.onend   = () => { setIsTalking(false); onDone(); };
-    utter.onerror = () => { setIsTalking(false); onDone(); };
-
-    return () => window.speechSynthesis.cancel();
+    return () => {
+      clearTimeout(delayTimer);
+      window.speechSynthesis.cancel();
+    };
   }, [speakTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Stop speech on unmount
