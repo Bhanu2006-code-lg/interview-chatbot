@@ -21,8 +21,8 @@ export default function MockInterview({ candidate, selectedCourse, onBack }) {
   const [micActive, setMicActive] = useState(false);
 
   // ── Avatar state ─────────────────────────────────────────────
-  const [avatarSpeaking, setAvatarSpeaking] = useState(false);
-  const [avatarMuted, setAvatarMuted] = useState(false);
+  const [speakTrigger, setSpeakTrigger] = useState(0);
+  const [avatarMuted, setAvatarMuted]   = useState(false);
 
   const recRef = useRef(null);
   const isRecRef = useRef(false);
@@ -53,8 +53,8 @@ export default function MockInterview({ candidate, selectedCourse, onBack }) {
     setPhase("question");
     setCurrent(0);
     setAnswers([]);
-    setAvatarSpeaking(false);
-    setTimeout(() => setAvatarSpeaking(true), 400);
+    // Trigger avatar to speak question 0 after phase change renders
+    setTimeout(() => setSpeakTrigger(t => t + 1), 500);
     startTimer();
   };
 
@@ -130,8 +130,8 @@ export default function MockInterview({ candidate, selectedCourse, onBack }) {
 
     if (current + 1 < questions.length) {
       setCurrent(c => c + 1);
-      setAvatarSpeaking(false);
-      setTimeout(() => setAvatarSpeaking(true), 400);
+      // Trigger avatar to speak the next question
+      setTimeout(() => setSpeakTrigger(t => t + 1), 400);
       startTimer();
     } else {
       submitAll(newAnswers);
@@ -218,8 +218,8 @@ export default function MockInterview({ candidate, selectedCourse, onBack }) {
       <div style={{ display: "flex", alignItems: "center", gap: 20, background: "#1a1a2e", border: "1px solid #2a2a4a", borderRadius: 14, padding: "16px 20px", marginBottom: 16 }}>
         <AvatarInterviewer
           question={questions[current] || ""}
-          speaking={avatarSpeaking}
-          onDone={() => setAvatarSpeaking(false)}
+          speakTrigger={speakTrigger}
+          onDone={() => {}}
           muted={avatarMuted}
           name="Alex"
           role="Senior Interviewer"
@@ -235,11 +235,11 @@ export default function MockInterview({ candidate, selectedCourse, onBack }) {
             </div>
           </div>
           <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
-            <button onClick={() => { window.speechSynthesis.cancel(); setAvatarMuted(m => !m); setAvatarSpeaking(false); }}
+            <button onClick={() => { window.speechSynthesis.cancel(); setAvatarMuted(m => !m); }}
               style={{ padding: "4px 12px", background: "transparent", border: `1px solid ${avatarMuted ? "#f44336" : "#4CAF50"}`, borderRadius: 20, color: avatarMuted ? "#f44336" : "#4CAF50", cursor: "pointer", fontSize: 11 }}>
               {avatarMuted ? "🔇 Unmute" : "🔊 Mute"}
             </button>
-            <button onClick={() => { window.speechSynthesis.cancel(); setAvatarSpeaking(false); setTimeout(() => setAvatarSpeaking(true), 200); }}
+            <button onClick={() => { window.speechSynthesis.cancel(); setTimeout(() => setSpeakTrigger(t => t + 1), 100); }}
               style={{ padding: "4px 12px", background: "transparent", border: "1px solid #2196F3", borderRadius: 20, color: "#2196F3", cursor: "pointer", fontSize: 11 }}>
               🔁 Replay
             </button>

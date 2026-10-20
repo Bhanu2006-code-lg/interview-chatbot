@@ -104,8 +104,8 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
   const [micActive, setMicActive] = useState(false);
 
   // ── Avatar state ─────────────────────────────────────────────
-  const [avatarSpeaking, setAvatarSpeaking] = useState(false);
-  const [avatarMuted, setAvatarMuted] = useState(false);
+  const [speakTrigger, setSpeakTrigger] = useState(0);
+  const [avatarMuted,  setAvatarMuted]  = useState(false);
 
   const loadSessions = useCallback(() => {
     fetch(`${API_BASE}/sessions?candidate_id=${candidate.id}`)
@@ -136,8 +136,8 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
           usedQuestionsRef.current = [...used, d.question];
           setTranslatedQuestion("");
           setHint("");
-          setAvatarSpeaking(false);
-          setTimeout(() => setAvatarSpeaking(true), 300); // slight delay so question renders first
+          // Trigger avatar to speak the new question
+          setTimeout(() => setSpeakTrigger(t => t + 1), 400);
           if (readLang) translateQuestion(readLang, d.question);
           setRelatedLoading(true);
           fetch(`${API_BASE}/related-questions`, {
@@ -179,8 +179,8 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
     setQuestion(q);
     setRelatedQuestions([]);
     usedQuestionsRef.current = [...usedQuestionsRef.current, q];
-    setAvatarSpeaking(false);
-    setTimeout(() => setAvatarSpeaking(true), 300);
+    // Trigger avatar to speak the picked question
+    setTimeout(() => setSpeakTrigger(t => t + 1), 400);
     
     setRelatedLoading(true);
     fetch(`${API_BASE}/related-questions`, {
@@ -440,8 +440,8 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1a1a2e", border: "1px solid #2a2a4a", borderRadius: 14, padding: "16px 20px", marginBottom: 16, flexWrap: "wrap", gap: 16 }}>
         <AvatarInterviewer
           question={question}
-          speaking={avatarSpeaking && !qLoading}
-          onDone={() => setAvatarSpeaking(false)}
+          speakTrigger={speakTrigger}
+          onDone={() => {}}
           muted={avatarMuted}
           name="Alex"
           role="Senior Interviewer"
@@ -453,20 +453,18 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
           <div style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6 }}>
             {qLoading
               ? "Preparing your next question..."
-              : avatarSpeaking
-              ? "Reading the question aloud..."
               : "Ready — click Start Interview when you are."}
           </div>
           {/* Mute toggle */}
           <button
-            onClick={() => { setAvatarMuted(m => !m); window.speechSynthesis.cancel(); setAvatarSpeaking(false); }}
+            onClick={() => { setAvatarMuted(m => !m); window.speechSynthesis.cancel(); }}
             style={{ marginTop: 10, padding: "5px 14px", background: "transparent", border: `1px solid ${avatarMuted ? "#f44336" : "#4CAF50"}`, borderRadius: 20, color: avatarMuted ? "#f44336" : "#4CAF50", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
             {avatarMuted ? "🔇 Unmute Avatar" : "🔊 Mute Avatar"}
           </button>
           {/* Replay button */}
           {question && !qLoading && (
             <button
-              onClick={() => { window.speechSynthesis.cancel(); setAvatarSpeaking(false); setTimeout(() => setAvatarSpeaking(true), 200); }}
+              onClick={() => { window.speechSynthesis.cancel(); setTimeout(() => setSpeakTrigger(t => t + 1), 100); }}
               style={{ marginTop: 10, marginLeft: 8, padding: "5px 14px", background: "transparent", border: "1px solid #2196F3", borderRadius: 20, color: "#2196F3", cursor: "pointer", fontSize: 12 }}>
               🔁 Replay
             </button>
