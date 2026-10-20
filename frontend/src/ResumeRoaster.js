@@ -85,7 +85,9 @@ export default function ResumeRoaster({ candidate }) {
     const a = document.createElement("a");
     a.href = url;
     a.download = `${candidate.name.replace(/\s+/g, "_")}_Resume_Improved.txt`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 

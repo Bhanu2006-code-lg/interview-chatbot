@@ -3,8 +3,8 @@ import API_BASE from "./api";
 
 const BADGES = [
   { id: "first_interview", icon: "🎤", label: "First Interview", desc: "Complete your first mock interview", check: (s) => s.length >= 1 },
-  { id: "streak_3", icon: "🔥", label: "3-Day Streak", desc: "Practice 3 days in a row", check: (s) => JSON.parse(localStorage.getItem("streak") || '{"count":0}').count >= 3 },
-  { id: "streak_7", icon: "⚡", label: "Week Warrior", desc: "Practice 7 days in a row", check: (s) => JSON.parse(localStorage.getItem("streak") || '{"count":0}').count >= 7 },
+  { id: "streak_3", icon: "🔥", label: "3-Day Streak", desc: "Practice 3 days in a row", check: () => { try { return JSON.parse(localStorage.getItem("streak") || '{"count":0}').count >= 3; } catch { return false; } } },
+  { id: "streak_7", icon: "⚡", label: "Week Warrior", desc: "Practice 7 days in a row", check: () => { try { return JSON.parse(localStorage.getItem("streak") || '{"count":0}').count >= 7; } catch { return false; } } },
   { id: "score_80", icon: "🏆", label: "High Scorer", desc: "Score 80+ in an interview", check: (s) => s.some(x => x.score >= 80) },
   { id: "score_90", icon: "💎", label: "Excellence", desc: "Score 90+ in an interview", check: (s) => s.some(x => x.score >= 90) },
   { id: "grade_a", icon: "⭐", label: "Grade A", desc: "Earn an A grade", check: (s) => s.some(x => x.grade === "A") },
@@ -36,7 +36,7 @@ export default function Profile({ candidate, onLogout }) {
   useEffect(() => {
     fetch(`${API_BASE}/sessions/full?candidate_id=${candidate.id}`)
       .then(r => r.json()).then(d => setSessions(d.sessions || [])).catch(() => {});
-  }, [candidate.id]);
+  }, [candidate.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const earned = BADGES.filter(b => b.check(sessions));
   const locked = BADGES.filter(b => !b.check(sessions));

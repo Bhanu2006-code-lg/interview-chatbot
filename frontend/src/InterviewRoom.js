@@ -111,18 +111,24 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
 
   const loadQuestion = useCallback((forceLevel) => {
     const lvl = forceLevel || levelRef.current;
-    if (!ALLOWED_LEVELS.has(lvl) || !ALLOWED_ROLES.has(selectedCourse.role)) return;
+    const safeRole = ALLOWED_ROLES.has(selectedCourse.role) ? selectedCourse.role : null;
+    const safeLevel = ALLOWED_LEVELS.has(lvl) ? lvl : null;
+    if (!safeRole || !safeLevel) return;
     setQLoading(true);
     setRelatedQuestions([]);
     const used = usedQuestionsRef.current;
-    const usedParam = encodeURIComponent(used.slice(-10).join("|"));
-    fetch(`${API_BASE}/question?role=${encodeURIComponent(selectedCourse.role)}&level=${encodeURIComponent(lvl)}&t=${Date.now()}&used=${usedParam}`)
+    const params = new URLSearchParams({
+      role: safeRole,
+      level: safeLevel,
+      t: String(Date.now()),
+      used: used.slice(-10).join("|"),
+    });
+    fetch(`${API_BASE}/question?${params.toString()}`)
       .then(r => r.json())
       .then(d => {
         if (d.question) {
           setQuestion(d.question);
           usedQuestionsRef.current = [...used, d.question];
-          
           setTranslatedQuestion("");
           setHint("");
           if (readLang) translateQuestion(readLang, d.question);
@@ -130,7 +136,7 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
           fetch(`${API_BASE}/related-questions`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question: d.question, role: selectedCourse.role, level: lvl })
+            body: JSON.stringify({ question: d.question, role: safeRole, level: safeLevel })
           }).then(r => r.json()).then(rd => setRelatedQuestions(rd.questions || [])).catch(() => {}).finally(() => setRelatedLoading(false));
         } else throw new Error("empty");
       })
@@ -185,7 +191,7 @@ export default function InterviewRoom({ candidate, selectedCourse, onChangeCours
       try { recRef.current?.stop(); } catch {}
       streamRef.current?.getTracks().forEach(t => t.stop());
     };
-  }, [loadQuestion, loadSessions]);
+  }, [loadQuestion, loadSessions]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   async function startCamera() {

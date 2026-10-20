@@ -22,14 +22,15 @@ export default function Chatbot({ candidate }) {
       const res = await fetch(`${API_BASE}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg, role: candidate?.role, history: updated.slice(-6) }),
+        body: JSON.stringify({ message: msg, role: candidate?.role, history: messages.slice(-6) }),
       });
       const data = await res.json();
       setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
     } catch {
       setMessages(prev => [...prev, { role: "assistant", content: "❌ Cannot connect to server. Make sure backend is running." }]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const suggestions = ["How do I use the STAR method?", "Give me a mock interview question", "How to improve eye contact?", "Tips for reducing filler words"];

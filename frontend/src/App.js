@@ -25,8 +25,10 @@ const LIGHT = { bg: "#f0f2f5", nav: "#ffffff", navBorder: "#e0e0e0", card: "#fff
 
 function App() {
   const [candidate, setCandidate] = useState(() => {
-    const s = sessionStorage.getItem("candidate");
-    return s ? JSON.parse(s) : null;
+    try {
+      const s = sessionStorage.getItem("candidate");
+      return s ? JSON.parse(s) : null;
+    } catch { return null; }
   });
   const [showLanding, setShowLanding] = useState(() => !sessionStorage.getItem("candidate"));
   const [selectedCourse, setSelectedCourse] = useState(null);
@@ -118,7 +120,7 @@ function App() {
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8 }}>
           {/* Hamburger - shows on mobile */}
           <button onClick={() => setMenuOpen(o => !o)}
-            style={{ width: 38, height: 38, display: "none", alignItems: "center", justifyContent: "center", background: dark ? "#ffffff12" : "#f0f0f0", border: `1.5px solid ${dark ? "#ffffff22" : "#ddd"}`, borderRadius: 10, cursor: "pointer", flexDirection: "column", gap: 5, padding: 0, className: "show-mobile" }}
+            style={{ width: 38, height: 38, display: "none", alignItems: "center", justifyContent: "center", background: dark ? "#ffffff12" : "#f0f0f0", border: `1.5px solid ${dark ? "#ffffff22" : "#ddd"}`, borderRadius: 10, cursor: "pointer", flexDirection: "column", gap: 5, padding: 0 }}
             className="show-mobile" aria-label="Menu">
             <span style={{ display: "block", width: 18, height: 2, background: dark ? "white" : "#333", borderRadius: 2 }} />
             <span style={{ display: "block", width: 18, height: 2, background: dark ? "white" : "#333", borderRadius: 2 }} />
@@ -181,7 +183,8 @@ function App() {
       {appPage === "interview" && !selectedCourse && (
         <CourseSelect candidate={candidate} onSelectCourse={c => {
           if (!c.free) {
-            const unlocked = JSON.parse(localStorage.getItem("unlocked") || "[]");
+            let unlocked = [];
+            try { unlocked = JSON.parse(localStorage.getItem("unlocked") || "[]"); } catch {}
             if (!unlocked.includes(c.role)) {
               if (!window.confirm(`"${c.title}" is a premium course (${c.price}). Click OK to unlock for demo purposes.`)) return;
               localStorage.setItem("unlocked", JSON.stringify([...unlocked, c.role]));

@@ -28,7 +28,8 @@ export default function MockInterview({ candidate, selectedCourse, onBack }) {
   useEffect(() => {
     loadQuestions();
     return () => { clearInterval(countdownRef.current); stopSR(); };
-  }, [selectedCourse.role]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount; selectedCourse.role is stable
 
   const loadQuestions = async () => {
     const qs = [];

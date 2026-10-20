@@ -10,8 +10,10 @@ export default function DailyChallenge({ candidate }) {
   const [timeLeft, setTimeLeft] = useState(180);
   const [started, setStarted] = useState(false);
   const [result, setResult] = useState(() => {
-    const s = localStorage.getItem(storageKey);
-    return s ? JSON.parse(s) : null;
+    try {
+      const s = localStorage.getItem(storageKey);
+      return s ? JSON.parse(s) : null;
+    } catch { return null; }
   });
   const [loading, setLoading] = useState(false);
   const timerRef = useRef(null);
@@ -20,7 +22,7 @@ export default function DailyChallenge({ candidate }) {
   useEffect(() => {
     fetch(`${API_BASE}/question?role=${encodeURIComponent(candidate.role)}&level=Advanced`)
       .then(r => r.json()).then(d => setQuestion(d.question || "")).catch(() => {});
-  }, [candidate.role]);
+  }, [candidate.role]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const start = () => {
     setStarted(true);

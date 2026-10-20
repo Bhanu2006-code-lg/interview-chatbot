@@ -23,6 +23,34 @@ function SignIn({ onLogin, onBack }) {
     "State Police Services", "AIIMS/Medical PSU", "Teaching KVS/NVS/TGT/PGT",
   ];
 
+  const UI = {
+    title: { login: "Welcome Back 👋", register: "Create Account 🚀" },
+    subtitle: { login: "Sign in to continue your practice", register: "Start your interview preparation journey" },
+    tabs: { login: "Sign In", register: "Register" },
+    submit: { login: "Sign In →", register: "Create Account →" },
+    toggle: { login: "Don't have an account? ", register: "Already have an account? " },
+    toggleLink: { login: "Register free", register: "Sign in" },
+    backToSignIn: "← Back to Sign In",
+    resetTitle: "Reset Password 🔑",
+    resetSubtitle: "Enter your email and we'll set a new password for you.",
+    emailLabel: "Email Address",
+    emailPlaceholder: "you@example.com",
+    resetButton: "Reset Password →",
+    sending: "Sending...",
+    fullNameLabel: "Full Name",
+    fullNamePlaceholder: "John Doe",
+    targetRoleLabel: "Target Role",
+    passwordLabel: "Password",
+    forgotPassword: "Forgot password?",
+    pleaseWait: "Please wait...",
+    backToHome: "← Back to Home",
+  };
+
+  const LABELS = {
+    login: UI.tabs.login,
+    register: UI.tabs.register,
+  };
+
   const handle = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const submit = async (e) => {
@@ -58,26 +86,26 @@ function SignIn({ onLogin, onBack }) {
           <Logo size={36} />
           <span style={{ fontSize: 20, fontWeight: "bold" }}>InterviewIQ <span style={{ color: "#06B6D4" }}>Pro</span></span>
         </div>
-        <button onClick={onBack} style={{ padding: "8px 18px", background: "transparent", border: "1px solid #333", borderRadius: 20, color: "#aaa", cursor: "pointer", fontSize: 13 }}>← Back to Home</button>
+        <button onClick={onBack} style={{ padding: "8px 18px", background: "transparent", border: "1px solid #333", borderRadius: 20, color: "#aaa", cursor: "pointer", fontSize: 13 }}>{UI.backToHome}</button>
       </nav>
 
       {/* Form */}
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 20px" }}>
         <div style={{ width: "100%", maxWidth: 420 }}>
           <div style={{ textAlign: "center", marginBottom: 28 }}>
-            <h2 style={{ margin: "0 0 6px", fontSize: 26 }}>{mode === "login" ? "Welcome Back 👋" : "Create Account 🚀"}</h2>
-            <p style={{ color: "#aaa", margin: 0, fontSize: 14 }}>{mode === "login" ? "Sign in to continue your practice" : "Start your interview preparation journey"}</p>
+            <h2 style={{ margin: "0 0 6px", fontSize: 26 }}>{UI.title[mode] || UI.title.login}</h2>
+            <p style={{ color: "#aaa", margin: 0, fontSize: 14 }}>{UI.subtitle[mode] || UI.subtitle.login}</p>
           </div>
 
           <div style={{ background: "#1a1a2e", border: "1px solid #1e1e3a", borderRadius: 16, padding: 32 }}>
             {mode === "forgot" && (
               <div>
                 <button onClick={() => { setMode("login"); setResetMsg(""); setResetEmail(""); }}
-                  style={{ background: "none", border: "none", color: "#4CAF50", cursor: "pointer", fontSize: 13, marginBottom: 20, padding: 0 }}>← Back to Sign In</button>
-                <h3 style={{ margin: "0 0 8px", color: "white" }}>Reset Password 🔑</h3>
-                <p style={{ color: "#aaa", fontSize: 13, marginBottom: 20 }}>Enter your email and we'll set a new password for you.</p>
-                <label style={{ fontSize: 12, color: "#aaa", display: "block", marginBottom: 6 }}>Email Address</label>
-                <input value={resetEmail} onChange={e => setResetEmail(e.target.value)} type="email" placeholder="you@example.com"
+                  style={{ background: "none", border: "none", color: "#4CAF50", cursor: "pointer", fontSize: 13, marginBottom: 20, padding: 0 }}>{UI.backToSignIn}</button>
+                <h3 style={{ margin: "0 0 8px", color: "white" }}>{UI.resetTitle}</h3>
+                <p style={{ color: "#aaa", fontSize: 13, marginBottom: 20 }}>{UI.resetSubtitle}</p>
+                <label style={{ fontSize: 12, color: "#aaa", display: "block", marginBottom: 6 }}>{UI.emailLabel}</label>
+                <input value={resetEmail} onChange={e => setResetEmail(e.target.value)} type="email" placeholder={UI.emailPlaceholder}
                   style={{ width: "100%", padding: "11px 14px", background: "#0f0f1a", border: "1px solid #2a2a4a", borderRadius: 10, color: "white", fontSize: 14, boxSizing: "border-box", outline: "none", marginBottom: 16 }} />
                 {resetMsg && (
                   <div style={{ background: resetMsg.startsWith("✅") ? "rgba(76,175,80,0.1)" : "rgba(244,67,54,0.1)", border: `1px solid ${resetMsg.startsWith("✅") ? "rgba(76,175,80,0.4)" : "rgba(244,67,54,0.4)"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: resetMsg.startsWith("✅") ? "#4CAF50" : "#f44336" }}>
@@ -93,7 +121,7 @@ function SignIn({ onLogin, onBack }) {
                   } catch { setResetMsg("⚠️ Cannot connect to server."); }
                   setResetLoading(false);
                 }} style={{ width: "100%", padding: "13px", fontSize: 15, background: resetLoading || !resetEmail.trim() ? "#333" : "linear-gradient(135deg,#4CAF50,#2196F3)", color: "white", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: "bold" }}>
-                  {resetLoading ? "Sending..." : "Reset Password →"}
+                  {resetLoading ? UI.sending : UI.resetButton}
                 </button>
               </div>
             )}
@@ -103,7 +131,7 @@ function SignIn({ onLogin, onBack }) {
               {["login", "register"].map(m => (
                 <button key={m} onClick={() => { setMode(m); setError(""); }}
                   style={{ flex: 1, padding: "10px", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: "bold", fontSize: 14, background: mode === m ? "linear-gradient(135deg,#4CAF50,#2196F3)" : "transparent", color: "white", transition: "all 0.2s" }}>
-                  {m === "login" ? "Sign In" : "Register"}
+                  {LABELS[m]}
                 </button>
               ))}
             </div>
@@ -112,12 +140,12 @@ function SignIn({ onLogin, onBack }) {
               {mode === "register" && (
                 <>
                   <div style={{ marginBottom: 16 }}>
-                    <label style={{ fontSize: 12, color: "#aaa", display: "block", marginBottom: 6 }}>Full Name</label>
-                    <input name="name" value={form.name} onChange={handle} required placeholder="John Doe"
+                    <label style={{ fontSize: 12, color: "#aaa", display: "block", marginBottom: 6 }}>{UI.fullNameLabel}</label>
+                    <input name="name" value={form.name} onChange={handle} required placeholder={UI.fullNamePlaceholder}
                       style={{ width: "100%", padding: "11px 14px", background: "#0f0f1a", border: "1px solid #2a2a4a", borderRadius: 10, color: "white", fontSize: 14, boxSizing: "border-box", outline: "none" }} />
                   </div>
                   <div style={{ marginBottom: 16 }}>
-                    <label style={{ fontSize: 12, color: "#aaa", display: "block", marginBottom: 6 }}>Target Role</label>
+                    <label style={{ fontSize: 12, color: "#aaa", display: "block", marginBottom: 6 }}>{UI.targetRoleLabel}</label>
                     <select name="role" value={form.role} onChange={handle}
                       style={{ width: "100%", padding: "11px 14px", background: "#0f0f1a", border: "1px solid #2a2a4a", borderRadius: 10, color: "white", fontSize: 14, boxSizing: "border-box", outline: "none" }}>
                       {roles.map(r => <option key={r} value={r}>{r}</option>)}
@@ -127,13 +155,13 @@ function SignIn({ onLogin, onBack }) {
               )}
 
               <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 12, color: "#aaa", display: "block", marginBottom: 6 }}>Email Address</label>
-                <input name="email" type="email" value={form.email} onChange={handle} required placeholder="you@example.com"
+                <label style={{ fontSize: 12, color: "#aaa", display: "block", marginBottom: 6 }}>{UI.emailLabel}</label>
+                <input name="email" type="email" value={form.email} onChange={handle} required placeholder={UI.emailPlaceholder}
                   style={{ width: "100%", padding: "11px 14px", background: "#0f0f1a", border: "1px solid #2a2a4a", borderRadius: 10, color: "white", fontSize: 14, boxSizing: "border-box", outline: "none" }} />
               </div>
 
               <div style={{ marginBottom: 22 }}>
-                <label style={{ fontSize: 12, color: "#aaa", display: "block", marginBottom: 6 }}>Password</label>
+                <label style={{ fontSize: 12, color: "#aaa", display: "block", marginBottom: 6 }}>{UI.passwordLabel}</label>
                 <input name="password" type="password" value={form.password} onChange={handle} required placeholder="••••••••"
                   style={{ width: "100%", padding: "11px 14px", background: "#0f0f1a", border: "1px solid #2a2a4a", borderRadius: 10, color: "white", fontSize: 14, boxSizing: "border-box", outline: "none" }} />
               </div>
@@ -141,7 +169,7 @@ function SignIn({ onLogin, onBack }) {
               {mode === "login" && (
                 <div style={{ textAlign: "right", marginTop: -14, marginBottom: 18 }}>
                   <span onClick={() => { setMode("forgot"); setError(""); }}
-                    style={{ fontSize: 12, color: "#4CAF50", cursor: "pointer" }}>Forgot password?</span>
+                    style={{ fontSize: 12, color: "#4CAF50", cursor: "pointer" }}>{UI.forgotPassword}</span>
                 </div>
               )}
 
@@ -153,7 +181,7 @@ function SignIn({ onLogin, onBack }) {
 
               <button type="submit" disabled={loading}
                 style={{ width: "100%", padding: "13px", fontSize: 15, background: loading ? "#333" : "linear-gradient(135deg,#4CAF50,#2196F3)", color: "white", border: "none", borderRadius: 10, cursor: loading ? "not-allowed" : "pointer", fontWeight: "bold" }}>
-                {loading ? "Please wait..." : mode === "login" ? "Sign In →" : "Create Account →"}
+                {loading ? UI.pleaseWait : UI.submit[mode]}
               </button>
             </form>
             </>
@@ -161,10 +189,10 @@ function SignIn({ onLogin, onBack }) {
           </div>
 
           <p style={{ textAlign: "center", color: "#555", fontSize: 13, marginTop: 20 }}>
-            {mode === "login" ? "Don't have an account? " : "Already have an account? "}
+            {UI.toggle[mode]}
             <span onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }}
               style={{ color: "#4CAF50", cursor: "pointer", fontWeight: "bold" }}>
-              {mode === "login" ? "Register free" : "Sign in"}
+              {UI.toggleLink[mode]}
             </span>
           </p>
         </div>

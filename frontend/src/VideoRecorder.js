@@ -8,8 +8,10 @@ export default function VideoRecorder({ candidate }) {
 
   const [recording, setRecording] = useState(false);
   const [recordings, setRecordings] = useState(() => {
-    const saved = localStorage.getItem(`recordings_${candidate.id}`);
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem(`recordings_${candidate.id}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
   const [playing, setPlaying] = useState(null);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -22,8 +24,10 @@ export default function VideoRecorder({ candidate }) {
     return () => {
       clearInterval(countdownRef.current);
       streamRef.current?.getTracks().forEach(t => t.stop());
+      // Revoke all blob URLs to prevent memory leaks
+      recordings.forEach(r => { if (r.url) URL.revokeObjectURL(r.url); });
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startRecording = async () => {
     try {
@@ -33,7 +37,12 @@ export default function VideoRecorder({ candidate }) {
       videoRef.current.play();
 
       chunksRef.current = [];
-      const mr = new MediaRecorder(stream, { mimeType: "video/webm" });
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+        ? "video/webm;codecs=vp9"
+        : MediaRecorder.isTypeSupported("video/webm")
+        ? "video/webm"
+        : "";
+      const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
       mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = () => saveRecording();
       mr.start(200);
@@ -81,6 +90,8 @@ export default function VideoRecorder({ candidate }) {
   };
 
   const deleteRecording = (id) => {
+    const rec = recordings.find(r => r.id === id);
+    if (rec?.url) URL.revokeObjectURL(rec.url);
     const updated = recordings.filter(r => r.id !== id);
     setRecordings(updated);
     localStorage.setItem(`recordings_${candidate.id}`, JSON.stringify(

@@ -8,7 +8,7 @@ export default function Analytics({ candidate }) {
   useEffect(() => {
     fetch(`${API_BASE}/sessions/full?candidate_id=${candidate.id}`)
       .then(r => r.json()).then(d => setSessions(d.sessions || [])).catch(() => {});
-  }, [candidate.id]);
+  }, [candidate.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const gc = g => ({ A: "#4CAF50", B: "#2196F3", C: "#FF9800" }[g] || "#f44336");
   const avg = key => sessions.length ? Math.round(sessions.reduce((s, r) => s + (r[key] || 0), 0) / sessions.length) : 0;

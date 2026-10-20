@@ -1,24 +1,54 @@
-from fastapi import FastAPI, WebSocket, HTTPException
+from fastapi import FastAPI, WebSocket, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, EmailStr, field_validator
 from groq import Groq
 import os
 import uuid
 import bcrypt
+import secrets
 from dotenv import load_dotenv
 import json
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 import asyncio
 from collections import defaultdict
+import time
+import re
 
 load_dotenv()
 
 api_key = os.getenv("GROQ_API_KEY")
-if not api_key:
-    raise RuntimeError("GROQ_API_KEY environment variable is not set")
+if not api_key or api_key == "your_groq_api_key_here":
+    print("⚠️  WARNING: GROQ_API_KEY is not set. AI features will not work.")
+    print("   → Get your free key at https://console.groq.com")
+    print("   → Add it to backend/.env as: GROQ_API_KEY=gsk_...")
+    api_key = "missing"
 client = Groq(api_key=api_key)
 
 app = FastAPI()
+
+# ── Rate limiting ────────────────────────────────────────────────
+_rate_store: dict = defaultdict(list)
+RATE_LIMIT = 30  # max requests
+RATE_WINDOW = 60  # per 60 seconds
+
+def check_rate_limit(ip: str):
+    now = time.time()
+    _rate_store[ip] = [t for t in _rate_store[ip] if now - t < RATE_WINDOW]
+    if len(_rate_store[ip]) >= RATE_LIMIT:
+        raise HTTPException(status_code=429, detail="Too many requests. Please wait a moment.")
+    _rate_store[ip].append(now)
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    ip = request.client.host if request.client else "unknown"
+    if request.method in ("POST", "DELETE") and request.url.path not in ("/",):
+        try:
+            check_rate_limit(ip)
+        except HTTPException as e:
+            return JSONResponse(status_code=429, content={"detail": e.detail})
+    return await call_next(request)
 
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 
@@ -116,26 +146,60 @@ Evaluate the answer and respond ONLY in this exact JSON format:
   "grade": "<A/B/C/D/F>"
 }"""
 
-# Model config — use fast small model to save tokens, fallback on rate limit
-FAST_MODEL = "llama-3.1-8b-instant"      # low token cost, fast
-SMART_MODEL = "llama-3.3-70b-versatile"  # only for evaluation
+# Model config — updated to use available models on this Groq account
+FAST_MODEL = "openai/gpt-oss-20b"        # fast, low cost
+SMART_MODEL = "qwen/qwen3.8-27b"         # smarter, for evaluation
+
+class GroqRateLimitError(RuntimeError):
+    """Raised when all Groq models are rate-limited."""
+
+def strip_thinking(text: str) -> str:
+    """Remove <think>...</think> chain-of-thought blocks that qwen models emit."""
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    return text.strip()
+
+def extract_content(resp) -> str:
+    """Extract text from a Groq response.
+    These reasoning models store their answer in 'content' (when available)
+    or fall back to the 'reasoning' field."""
+    msg = resp.choices[0].message
+    content = msg.content or ""
+    if not content.strip():
+        # Reasoning models sometimes store output in the reasoning field
+        content = getattr(msg, "reasoning", "") or ""
+    return strip_thinking(content).strip()
 
 def groq_call(messages, model=None, temperature=0.5, max_tokens=200):
     """Sync Groq call with automatic fallback on rate limit."""
-    models = [model or FAST_MODEL, FAST_MODEL, "gemma2-9b-it"]
+    models = [model or FAST_MODEL, FAST_MODEL, SMART_MODEL]
+    # deduplicate while preserving order
+    seen = set()
+    models = [m for m in models if not (m in seen or seen.add(m))]
     last_err = None
     for m in models:
         try:
-            return client.chat.completions.create(
+            # Use low reasoning_effort to minimize reasoning leakage into answers
+            resp = client.chat.completions.create(
                 model=m, messages=messages,
-                temperature=temperature, max_tokens=max_tokens
+                temperature=temperature, max_tokens=max_tokens,
+                extra_body={"reasoning_effort": "low"}
             )
+            # Wrap in a simple namespace so callers can do resp.choices[0].message.content
+            class _Msg:
+                def __init__(self, content): self.content = content
+            class _Choice:
+                def __init__(self, content): self.message = _Msg(content)
+            class _Resp:
+                def __init__(self, content): self.choices = [_Choice(content)]
+            return _Resp(extract_content(resp))
         except Exception as e:
             last_err = e
             if "rate_limit" in str(e).lower() or "429" in str(e):
                 continue
             raise
-    raise Exception(f"Rate limit reached on all models. Please wait a few minutes. ({last_err})")
+    raise GroqRateLimitError(
+        f"Rate limit reached on all models. Please wait a few minutes. ({last_err})"
+    ) from last_err
 
 
 def hash_password(p: str) -> str:
@@ -144,65 +208,180 @@ def hash_password(p: str) -> str:
 def verify_password(p: str, hashed: str) -> bool:
     return bcrypt.checkpw(p.encode(), hashed.encode())
 
+# ── Pydantic models ───────────────────────────────────────────
+class RegisterBody(BaseModel):
+    name: str
+    email: str
+    password: str
+    role: str = "Software Engineer"
+
+    @field_validator("name")
+    @classmethod
+    def name_valid(cls, v):
+        v = v.strip()
+        if not v or len(v) > 100:
+            raise ValueError("Name must be 1-100 characters")
+        return v
+
+    @field_validator("email")
+    @classmethod
+    def email_valid(cls, v):
+        v = v.strip().lower()
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v) or len(v) > 200:
+            raise ValueError("Invalid email")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def password_valid(cls, v):
+        if len(v) < 6 or len(v) > 128:
+            raise ValueError("Password must be 6-128 characters")
+        return v
+
+class LoginBody(BaseModel):
+    email: str
+    password: str
+
+class ForgotBody(BaseModel):
+    email: str
+
+class EvaluateBody(BaseModel):
+    question: str
+    transcript: str
+    eye_contact: float = 0
+    filler_count: int = 0
+    wpm: float = 0
+    candidate_id: int = 0
+
+class ChatBody(BaseModel):
+    message: str
+    role: str = "Software Engineer"
+    history: list = []
+
+class FeedbackBody(BaseModel):
+    candidate_id: int = 0
+    candidate_name: str = "Anonymous"
+    rating: int
+    category: str = "General"
+    message: str
+
+    @field_validator("rating")
+    @classmethod
+    def rating_valid(cls, v):
+        if v < 1 or v > 5:
+            raise ValueError("Rating must be 1-5")
+        return v
+
+    @field_validator("message")
+    @classmethod
+    def message_valid(cls, v):
+        if not v.strip() or len(v) > 2000:
+            raise ValueError("Message must be 1-2000 characters")
+        return v.strip()
+
+class ResumeBody(BaseModel):
+    resume: str
+    role: str = "Software Engineer"
+
+class JDBody(BaseModel):
+    jd: str
+    role: str = "Software Engineer"
+    level: str = "Intermediate"
+
+class QuestionBody(BaseModel):
+    question: str
+    role: str = "Software Engineer"
+    jd: str = ""
+
+class HintBody(BaseModel):
+    question: str
+    role: str = "Software Engineer"
+
+class TranslateBody(BaseModel):
+    question: str
+    language: str = "Hindi"
+
+class ImproveBody(BaseModel):
+    question: str
+    transcript: str
+    role: str = "Software Engineer"
+
+class FollowupBody(BaseModel):
+    question: str
+    transcript: str
+    role: str = "Software Engineer"
+
+class RelatedBody(BaseModel):
+    question: str
+    role: str = "Software Engineer"
+    level: str = "Intermediate"
+
+class MockEvalBody(BaseModel):
+    answers: list
+    role: str = "Software Engineer"
+    candidate_id: int = 0
+
+class WarmupBody(BaseModel):
+    role: str = "Software Engineer"
+    level: str = "Intermediate"
+
 @app.get("/")
 async def root():
     return {"message": "Backend Running!"}
 
 @app.post("/auth/register")
-async def register(data: dict):
-    name = data.get("name", "").strip()
-    email = data.get("email", "").strip().lower()
-    password = data.get("password", "")
-    role = data.get("role", "Software Engineer")
-    if not name or not email or not password:
-        raise HTTPException(status_code=400, detail="All fields are required")
+async def register(data: RegisterBody):
+    name = data.name
+    email = data.email
+    password = data.password
+    role = data.role
     conn = sqlite3.connect("sessions.db")
     c = conn.cursor()
-    if len(password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
     try:
         c.execute("INSERT INTO candidates (name, email, password, role, created_at) VALUES (?,?,?,?,?)",
                   (name, email, hash_password(password), role, datetime.now().strftime("%Y-%m-%d")))
         conn.commit()
         candidate_id = c.lastrowid
-        conn.close()
         return {"candidate": {"id": candidate_id, "name": name, "email": email, "role": role}}
     except sqlite3.IntegrityError:
-        conn.close()
         raise HTTPException(status_code=400, detail="Email already registered")
+    finally:
+        conn.close()
 
 @app.post("/auth/login")
-async def login(data: dict):
-    email = data.get("email", "").strip().lower()
-    password = data.get("password", "")
+async def login(data: LoginBody):
+    email = data.email.strip().lower()
+    password = data.password
     conn = sqlite3.connect("sessions.db")
     c = conn.cursor()
-    c.execute("SELECT id, name, email, role, password FROM candidates WHERE email=?", (email,))
-    row = c.fetchone()
-    conn.close()
+    try:
+        c.execute("SELECT id, name, email, role, password FROM candidates WHERE email=?", (email,))
+        row = c.fetchone()
+    finally:
+        conn.close()
     if not row or not verify_password(password, row[4]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     return {"candidate": {"id": row[0], "name": row[1], "email": row[2], "role": row[3]}}
 
 @app.post("/auth/forgot-password")
-async def forgot_password(data: dict):
-    import secrets
-    email = data.get("email", "").strip().lower()
+async def forgot_password(data: ForgotBody):
+    email = data.email.strip().lower()
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
     conn = sqlite3.connect("sessions.db")
     c = conn.cursor()
-    c.execute("SELECT id FROM candidates WHERE email=?", (email,))
-    row = c.fetchone()
-    if not row:
+    try:
+        c.execute("SELECT id FROM candidates WHERE email=?", (email,))
+        row = c.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="No account found with that email")
+        new_password = secrets.token_urlsafe(8)
+        c.execute("UPDATE candidates SET password=? WHERE email=?", (hash_password(new_password), email))
+        conn.commit()
+        # NOTE: In production, send via email. Returning here for demo only.
+        return {"message": f"Password reset. Your temporary password is: {new_password[:4]}**** — change it after login."}
+    finally:
         conn.close()
-        raise HTTPException(status_code=404, detail="No account found with that email")
-    new_password = secrets.token_urlsafe(8)
-    c.execute("UPDATE candidates SET password=? WHERE email=?", (hash_password(new_password), email))
-    conn.commit()
-    conn.close()
-    # NOTE: In production, send this via email. Returning here only for demo purposes.
-    return {"message": f"Password reset. Your temporary password is: {new_password} — change it after login."}
 
 
 # ── Question cache ──────────────────────────────────────────────
@@ -286,9 +465,9 @@ async def warmup_cache():
         asyncio.create_task(refill_cache(role, level, set(), count=3))
 
 @app.post("/warmup")
-async def warmup(data: dict):
-    role = data.get("role", "Software Engineer")
-    level = data.get("level", "Intermediate")
+async def warmup(data: WarmupBody):
+    role = data.role
+    level = data.level
     key = f"{role}||{level}"
     if len(question_cache[key]) < 2:
         asyncio.create_task(refill_cache(role, level, set(), count=3))
@@ -331,9 +510,9 @@ async def get_question(role: str = "Software Engineer", level: str = "Intermedia
         return {"question": random.choice(available)}
 
 @app.post("/translate-question")
-async def translate_question(data: dict):
-    question = data.get("question", "")
-    language = data.get("language", "Hindi")
+async def translate_question(data: TranslateBody):
+    question = data.question[:500]
+    language = data.language
 
     language_scripts = {
         "Odia": "Odia script (ଓଡ଼ିଆ)",
@@ -359,7 +538,7 @@ async def translate_question(data: dict):
             return groq_call([
                 {"role": "system", "content": f"You are a professional translator specializing in {script_hint}. Your task is to translate the ENTIRE given text into {language} using {script_hint}. Rules: 1) Translate EVERY single word - do not leave any English words untranslated. 2) Use only native {language} script characters. 3) No romanization. 4) No English words mixed in. 5) Return ONLY the fully translated text."},
                 {"role": "user", "content": question}
-            ], temperature=0.1, max_tokens=200)
+            ], temperature=0.1, max_tokens=400)
         resp = await loop.run_in_executor(None, _call)
         translated = resp.choices[0].message.content.strip()
         return {"translated": translated}
@@ -367,9 +546,9 @@ async def translate_question(data: dict):
         return {"translated": "", "error": str(e)}
 
 @app.post("/hint")
-async def get_hint(data: dict):
-    question = data.get("question", "")
-    role = data.get("role", "Software Engineer")
+async def get_hint(data: HintBody):
+    question = data.question[:300]
+    role = data.role
     try:
         loop = asyncio.get_running_loop()
         def _call():
@@ -383,10 +562,10 @@ async def get_hint(data: dict):
         return {"hint": "Think about a specific situation, your role, the actions you took, and the measurable result."}
 
 @app.post("/jd-match")
-async def jd_match(data: dict):
-    jd = data.get("jd", "")
-    role = data.get("role", "Software Engineer")
-    level = data.get("level", "Intermediate")
+async def jd_match(data: JDBody):
+    jd = data.jd
+    role = data.role
+    level = data.level
     try:
         loop = asyncio.get_running_loop()
         def _call():
@@ -402,10 +581,10 @@ async def jd_match(data: dict):
         return {"questions": [], "key_skills": [], "tips": "", "error": str(e)}
 
 @app.post("/jd-match/answer")
-async def jd_match_answer(data: dict):
-    question = data.get("question", "")
-    role = data.get("role", "Software Engineer")
-    jd = data.get("jd", "")
+async def jd_match_answer(data: QuestionBody):
+    question = data.question[:300]
+    role = data.role
+    jd = data.jd
     try:
         loop = asyncio.get_running_loop()
         def _call():
@@ -419,10 +598,10 @@ async def jd_match_answer(data: dict):
         return {"answer": "Could not generate answer. Please try again."}
 
 @app.post("/mock-interview/evaluate")
-async def mock_evaluate(data: dict):
-    answers = data.get("answers", [])  # [{question, transcript}]
-    role = data.get("role", "Software Engineer")
-    candidate_id = data.get("candidate_id", None)
+async def mock_evaluate(data: MockEvalBody):
+    answers = data.answers[:10]
+    role = data.role
+    candidate_id = data.candidate_id or None
     if not answers:
         return {"error": "No answers provided"}
     try:
@@ -454,22 +633,22 @@ async def mock_evaluate(data: dict):
 
 
 @app.post("/related-questions")
-async def related_questions(data: dict):
-    question = data.get("question", "")
-    role = data.get("role", "Software Engineer")
-    level = data.get("level", "Intermediate")
+async def related_questions(data: RelatedBody):
+    question = data.question[:300]
+    role = data.role
+    level = data.level
     topics = SUBJECT_TOPICS.get(role, "relevant domain knowledge")
     try:
         loop = asyncio.get_running_loop()
         def _call():
-            return client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+            return groq_call(
                 messages=[
                     {"role": "system", "content": f"""You are an expert interviewer for {role}.
 Given an interview question, generate exactly 3 related follow-up or similar questions on the same topic.
 Respond ONLY as a JSON array of 3 strings: ["question1", "question2", "question3"]"""},
                     {"role": "user", "content": f"Main question: {question}\nRole: {role}, Level: {level}, Topics: {topics}\n\nGenerate 3 related questions:"}
                 ],
+                model=SMART_MODEL,
                 temperature=0.9,
                 max_tokens=300,
             )
@@ -484,40 +663,44 @@ Respond ONLY as a JSON array of 3 strings: ["question1", "question2", "question3
         return {"questions": []}
 
 @app.get("/sessions")
-async def get_sessions(candidate_id: int = None):
+async def get_sessions(candidate_id: int = 0):
     conn = sqlite3.connect("sessions.db")
     c = conn.cursor()
-    if candidate_id:
-        c.execute("SELECT id, date, score, grade, eye_contact, wpm, filler_count FROM sessions WHERE candidate_id=? ORDER BY id DESC LIMIT 10", (candidate_id,))
-    else:
-        c.execute("SELECT id, date, score, grade, eye_contact, wpm, filler_count FROM sessions ORDER BY id DESC LIMIT 10")
-    rows = c.fetchall()
-    conn.close()
+    try:
+        if candidate_id:
+            c.execute("SELECT id, date, score, grade, eye_contact, wpm, filler_count FROM sessions WHERE candidate_id=? ORDER BY id DESC LIMIT 10", (candidate_id,))
+        else:
+            c.execute("SELECT id, date, score, grade, eye_contact, wpm, filler_count FROM sessions ORDER BY id DESC LIMIT 20")
+        rows = c.fetchall()
+    finally:
+        conn.close()
     return {"sessions": [
         {"id": r[0], "date": r[1], "score": r[2], "grade": r[3], "eye": r[4], "wpm": r[5], "filler_count": r[6]}
         for r in rows
     ]}
 
 @app.delete("/sessions/reset")
-async def reset_sessions(candidate_id: int = None):
+async def reset_sessions(candidate_id: int = 0):
     conn = sqlite3.connect("sessions.db")
     c = conn.cursor()
-    if candidate_id:
-        c.execute("DELETE FROM sessions WHERE candidate_id=?", (candidate_id,))
-    else:
-        c.execute("DELETE FROM sessions")
-    conn.commit()
-    conn.close()
+    try:
+        if candidate_id:
+            c.execute("DELETE FROM sessions WHERE candidate_id=?", (candidate_id,))
+        else:
+            c.execute("DELETE FROM sessions")
+        conn.commit()
+    finally:
+        conn.close()
     return {"message": "Sessions cleared"}
 
 @app.post("/evaluate")
-async def evaluate_answer(data: dict):
-    question = data.get("question", "")
-    transcript = data.get("transcript", "")
-    eye_contact = data.get("eye_contact", 0)
-    filler_count = data.get("filler_count", 0)
-    wpm = data.get("wpm", 0)
-    candidate_id = data.get("candidate_id", None)
+async def evaluate_answer(data: EvaluateBody):
+    question = data.question[:500]
+    transcript = data.transcript
+    eye_contact = max(0.0, min(100.0, data.eye_contact))
+    filler_count = max(0, data.filler_count)
+    wpm = max(0.0, data.wpm)
+    candidate_id = data.candidate_id or None
 
     if not transcript or len(transcript.strip()) < 10:
         return {
@@ -564,10 +747,10 @@ async def evaluate_answer(data: dict):
         return {"error": str(e), "overall_feedback": "Evaluation failed. Please try again."}
 
 @app.post("/improve-answer")
-async def improve_answer(data: dict):
-    question = data.get("question", "")
-    transcript = data.get("transcript", "")
-    role = data.get("role", "Software Engineer")
+async def improve_answer(data: ImproveBody):
+    question = data.question[:500]
+    transcript = data.transcript
+    role = data.role
     try:
         loop = asyncio.get_running_loop()
         resp = await loop.run_in_executor(None, lambda: groq_call([{
@@ -582,10 +765,10 @@ async def improve_answer(data: dict):
         return {"improved": "Could not generate improved answer. Please try again."}
 
 @app.post("/followup")
-async def followup_question(data: dict):
-    question = data.get("question", "")
-    transcript = data.get("transcript", "")
-    role = data.get("role", "Software Engineer")
+async def followup_question(data: FollowupBody):
+    question = data.question[:500]
+    transcript = data.transcript
+    role = data.role
     try:
         loop = asyncio.get_running_loop()
         resp = await loop.run_in_executor(None, lambda: groq_call([{
@@ -594,7 +777,7 @@ async def followup_question(data: dict):
         }, {
             "role": "user",
             "content": f"Q: {question}\nA: {transcript[:500]}\n\nFollow-up:"
-        }], temperature=0.7, max_tokens=60))
+        }], temperature=0.7, max_tokens=300))
         return {"followup": resp.choices[0].message.content.strip().strip('"')}
     except Exception as e:
         return {"followup": "Can you elaborate more on the specific actions you took?"}
@@ -603,27 +786,31 @@ async def followup_question(data: dict):
 async def leaderboard():
     conn = sqlite3.connect("sessions.db")
     c = conn.cursor()
-    c.execute("SELECT ca.id, ca.name, ca.role, MAX(s.score) as best_score, COUNT(s.id) as sessions FROM candidates ca JOIN sessions s ON s.candidate_id=ca.id GROUP BY ca.id ORDER BY best_score DESC LIMIT 20")
-    rows = c.fetchall()
-    conn.close()
+    try:
+        c.execute("SELECT ca.id, ca.name, ca.role, MAX(s.score) as best_score, COUNT(s.id) as sessions FROM candidates ca JOIN sessions s ON s.candidate_id=ca.id GROUP BY ca.id ORDER BY best_score DESC LIMIT 20")
+        rows = c.fetchall()
+    finally:
+        conn.close()
     return {"leaderboard": [{"id":r[0],"name":r[1],"role":r[2],"best_score":r[3],"best_grade":"A" if r[3]>=90 else "B" if r[3]>=75 else "C" if r[3]>=60 else "D","sessions":r[4]} for r in rows]}
 
 @app.get("/sessions/full")
-async def get_sessions_full(candidate_id: int = None):
+async def get_sessions_full(candidate_id: int = 0):
     conn = sqlite3.connect("sessions.db")
     c = conn.cursor()
-    if candidate_id:
-        c.execute("SELECT id, date, score, grade, eye_contact, wpm, filler_count, question, transcript, overall_feedback FROM sessions WHERE candidate_id=? ORDER BY id ASC", (candidate_id,))
-    else:
-        c.execute("SELECT id, date, score, grade, eye_contact, wpm, filler_count, question, transcript, overall_feedback FROM sessions ORDER BY id ASC")
-    rows = c.fetchall()
-    conn.close()
+    try:
+        if candidate_id:
+            c.execute("SELECT id, date, score, grade, eye_contact, wpm, filler_count, question, transcript, overall_feedback FROM sessions WHERE candidate_id=? ORDER BY id ASC", (candidate_id,))
+        else:
+            c.execute("SELECT id, date, score, grade, eye_contact, wpm, filler_count, question, transcript, overall_feedback FROM sessions ORDER BY id ASC LIMIT 100")
+        rows = c.fetchall()
+    finally:
+        conn.close()
     return {"sessions": [{"id":r[0],"date":r[1],"score":r[2],"grade":r[3],"eye":r[4],"wpm":r[5],"filler_count":r[6],"question":r[7],"transcript":r[8],"overall_feedback":r[9]} for r in rows]}
 
 @app.post("/improve-resume")
-async def improve_resume(data: dict):
-    resume = data.get("resume", "")
-    role = data.get("role", "Software Engineer")
+async def improve_resume(data: ResumeBody):
+    resume = data.resume
+    role = data.role
     try:
         loop = asyncio.get_running_loop()
         resp = await loop.run_in_executor(None, lambda: groq_call([{
@@ -638,9 +825,9 @@ async def improve_resume(data: dict):
         return {"improved": "", "error": str(e)}
 
 @app.post("/roast-resume")
-async def roast_resume(data: dict):
-    resume = data.get("resume", "")
-    role = data.get("role", "Software Engineer")
+async def roast_resume(data: ResumeBody):
+    resume = data.resume
+    role = data.role
     try:
         loop = asyncio.get_running_loop()
         resp = await loop.run_in_executor(None, lambda: groq_call([{
@@ -657,15 +844,15 @@ async def roast_resume(data: dict):
         return {"error": str(e)}
 
 @app.post("/quiz")
-async def generate_quiz(data: dict):
-    role = data.get("role", "Software Engineer")
+async def generate_quiz(data: WarmupBody):
+    role = data.role
     try:
         loop = asyncio.get_running_loop()
         resp = await loop.run_in_executor(None, lambda: groq_call([{
             "role": "system", "content": 'Generate exactly 10 MCQ questions. Respond ONLY in JSON: {"questions": [{"question": "<q>", "options": ["A","B","C","D"], "answer": <0-3>}]}'
         }, {
             "role": "user", "content": f"10 MCQ quiz for {role} interview."
-        }], temperature=0.7, max_tokens=800))
+        }], temperature=0.7, max_tokens=1500))
         raw = resp.choices[0].message.content.strip()
         try:
             return json.loads(raw)
@@ -675,10 +862,10 @@ async def generate_quiz(data: dict):
         return {"questions": []}
 
 @app.post("/chat")
-async def chat(data: dict):
-    message = data.get("message", "").strip()
-    role = data.get("role", "Software Engineer")
-    history = data.get("history", [])
+async def chat(data: ChatBody):
+    message = data.message.strip()[:1000]
+    role = data.role
+    history = data.history[-6:]
     if not message:
         return {"reply": "Please ask a question."}
     messages = [
@@ -697,31 +884,34 @@ Be concise, practical, and encouraging. Format responses clearly."""},
         return {"reply": f"Sorry, I couldn't process that. Please try again. ({str(e)})"}
 
 @app.post("/feedback")
-async def submit_feedback(data: dict):
-    candidate_id = data.get("candidate_id")
-    candidate_name = data.get("candidate_name", "Anonymous")
-    rating = data.get("rating", 5)
-    category = data.get("category", "General")
-    message = data.get("message", "").strip()
-    if not message:
-        raise HTTPException(status_code=400, detail="Feedback message is required")
+async def submit_feedback(data: FeedbackBody):
+    candidate_id = data.candidate_id or None
+    candidate_name = data.candidate_name[:100]
+    rating = data.rating
+    category = data.category[:50]
+    message = data.message
     conn = sqlite3.connect("sessions.db")
     c = conn.cursor()
-    c.execute("INSERT INTO feedback (candidate_id, candidate_name, rating, category, message, created_at) VALUES (?,?,?,?,?,?)",
-              (candidate_id, candidate_name, rating, category, message, datetime.now().strftime("%Y-%m-%d %H:%M")))
-    conn.commit()
-    conn.close()
+    try:
+        c.execute("INSERT INTO feedback (candidate_id, candidate_name, rating, category, message, created_at) VALUES (?,?,?,?,?,?)",
+                  (candidate_id, candidate_name, rating, category, message, datetime.now().strftime("%Y-%m-%d %H:%M")))
+        conn.commit()
+    finally:
+        conn.close()
     return {"message": "Feedback submitted successfully"}
 
 @app.get("/feedback")
 async def get_feedback():
     conn = sqlite3.connect("sessions.db")
     c = conn.cursor()
-    c.execute("SELECT candidate_name, rating, category, message, created_at FROM feedback ORDER BY id DESC LIMIT 50")
-    rows = c.fetchall()
-    conn.close()
+    try:
+        c.execute("SELECT candidate_name, rating, category, message, created_at FROM feedback ORDER BY id DESC LIMIT 50")
+        rows = c.fetchall()
+    finally:
+        conn.close()
     return {"feedback": [{"name": r[0], "rating": r[1], "category": r[2], "message": r[3], "date": r[4]} for r in rows]}
 
+@app.websocket("/ws/transcribe")
 async def websocket_endpoint(websocket: WebSocket, lang: str = "or"):
     await websocket.accept()
     print("✅ Client connected")

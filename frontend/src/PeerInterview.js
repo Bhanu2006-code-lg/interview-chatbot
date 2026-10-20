@@ -115,7 +115,7 @@ export default function PeerInterview({ candidate }) {
     clearInterval(countdownRef.current);
   };
 
-  useEffect(() => () => clearInterval(countdownRef.current), []);
+  useEffect(() => () => clearInterval(countdownRef.current), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const avgScore = Object.values(scores).length ? Math.round(Object.values(scores).reduce((a, b) => a + b, 0) / Object.values(scores).length) : 0;
   const gc = s => s >= 80 ? "#4CAF50" : s >= 60 ? "#2196F3" : s >= 40 ? "#FF9800" : "#f44336";
